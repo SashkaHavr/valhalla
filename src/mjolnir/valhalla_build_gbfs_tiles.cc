@@ -2,9 +2,6 @@
 #include <vector>
 
 #include "config.h"
-#include "mjolnir/util.h"
-
-using namespace valhalla::mjolnir;
 
 #include "baldr/rapidjson_utils.h"
 #include <boost/optional.hpp>
@@ -15,7 +12,9 @@ using namespace valhalla::mjolnir;
 #include "filesystem.h"
 #include "midgard/logging.h"
 #include "midgard/util.h"
+
 #include "valhalla/mjolnir/gbfsgraphbuilder.h"
+using namespace valhalla::mjolnir::gbfs;
 
 
 int main(int argc, char** argv) {
