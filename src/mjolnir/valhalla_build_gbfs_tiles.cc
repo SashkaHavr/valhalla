@@ -91,8 +91,7 @@ int main(int argc, char** argv) {
   }
 
   // Build some tiles!
-  //build_tile_set(pt, input_files, start_stage, end_stage)
-  GBFSGraphBuilder g;
+  gbfs_graph_builder g(pt, input_files);
   if (g.build()) {
     return EXIT_SUCCESS;
   } else {
