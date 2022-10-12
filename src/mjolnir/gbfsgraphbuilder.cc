@@ -7,17 +7,6 @@ namespace gbfs {
 bool gbfs_graph_builder::build(bool parse_osm_first) {
   LOG_INFO("GBFS ----- Build started");
 
-  // init();
-  // parse_ways();
-  // parse_relations();
-  // parse_nodes();
-  // construct_edges();
-  // build();
-  // enhance();
-  // filter();
-
-
-
   if(parse_osm_first) {
     LOG_INFO("GBFS ----- Parse OSM Data");
     build_tile_set(config, input_files, valhalla::mjolnir::BuildStage::kInitialize, valhalla::mjolnir::BuildStage::kFilter);
@@ -34,14 +23,8 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
 
   create_new_nodes();
 
-  // LOG_INFO("GBFS ----- Start last build stages");
-
-  // build_tile_set(config, input_files, valhalla::mjolnir::BuildStage::kElevation, valhalla::mjolnir::BuildStage::kCleanup);
-  // elevation();
-
-  // cleanup();
-
-  // fetch_gbfs_data();
+  LOG_INFO("GBFS ----- Start last build stages");
+  build_tile_set(config, input_files, valhalla::mjolnir::BuildStage::kElevation, valhalla::mjolnir::BuildStage::kCleanup);
 
   return true;
 }
@@ -228,6 +211,7 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
 
   void gbfs_graph_builder::create_new_nodes() {
     GraphReader reader(config.get_child("mjolnir"));
+    std::string tile_dir = config.get_child("mjolnir").get<std::string>("tile_dir", "");
     std::unordered_map<GraphId, uint32_t> new_nodes;
 
     // lambda to get the next "new" node Id in a given tile
@@ -278,13 +262,13 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
           // Update the flag for the level of this edge (skip transit
           // connection edges)
           const DirectedEdge* directededge = tile->directededge(edgeid);
-          levels[0] = (directededge->forwardaccess() & kPedestrianAccess) == kPedestrianAccess;
-          levels[1] = (directededge->forwardaccess() & kBicycleAccess) == kBicycleAccess;
+          levels[0] = levels[0] || ((directededge->forwardaccess() & kPedestrianAccess) == kPedestrianAccess);
+          levels[1] = levels[1] || ((directededge->forwardaccess() & kBicycleAccess) == kBicycleAccess);
         }
 
         if (!levels[0] && !levels[1]) {
           // LOG_ERROR("No valid level for this node!");
-          continue;
+          // continue;
         }
 
         // Associate new nodes to base nodes and base node to new nodes
@@ -344,6 +328,11 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
     PointLL base_ll;
     GraphTileBuilder* tilebuilder = nullptr;
     for (auto new_node = new_to_old.begin(); new_node != new_to_old.end(); new_node++) {
+
+      if((*new_node).access == 0) {
+        continue;
+      }
+
       // Get the node - check if a new tile
       GraphId nodea = (*new_node).new_node;
       if (nodea.Tile_Base() != tile_id) {
@@ -355,7 +344,7 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
 
         // New tilebuilder for the next tile. Update current level.
         tile_id = nodea.Tile_Base();
-        tilebuilder = new GraphTileBuilder(reader.tile_dir(), tile_id, false);
+        tilebuilder = new GraphTileBuilder(tile_dir, tile_id, false);
         current_level = nodea.level();
 
         // Set the base ll for this tile
@@ -612,6 +601,202 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
       LOG_INFO(v["name"].GetString());
     }
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  void gbfs_graph_builder::construct_full_graph() {
+    std::unordered_map<baldr::GraphId, baldr::GraphId> old_to_new;
+    GraphReader reader(config.get_child("mjolnir"));
+
+
+    auto local_tiles = reader.GetTileSet(TileHierarchy::levels().back().level);
+    for (const auto& tile_id : local_tiles) {
+      // Create a new tilebuilder - should copy header information
+      GraphTileBuilder tilebuilder(reader.tile_dir(), tile_id, false);
+
+      // Get the graph tile. Read from this tile to create the new tile.
+      graph_tile_ptr tile = reader.GetGraphTile(tile_id);
+      assert(tile);
+
+      std::hash<std::string> hasher;
+      GraphId nodeid(tile_id.tileid(), tile_id.level(), 0);
+      for (uint32_t i = 0; i < tile->header()->nodecount(); ++i, ++nodeid) {
+        // Count of edges added for this node
+        uint32_t edge_count = 0;
+
+        // Current edge index for first edge from this node
+        uint32_t edge_index = tilebuilder.directededges().size();
+
+        // Iterate through directed edges outbound from this node
+        std::vector<uint64_t> wayid;
+        std::vector<GraphId> endnode;
+        const NodeInfo* nodeinfo = tile->node(nodeid);
+        GraphId edgeid(nodeid.tileid(), nodeid.level(), nodeinfo->edge_index());
+        for (uint32_t j = 0; j < nodeinfo->edge_count(); ++j, ++edgeid) {
+          // Check if the directed edge should be included
+          const DirectedEdge* directededge = tile->directededge(edgeid);
+          // if (!include_edge(directededge)) { //COUNTS //TODO
+          //   ++n_filtered_edges;
+          //   continue;
+          // }
+
+          // Copy the directed edge information
+          DirectedEdge newedge = *directededge;
+
+          // Set opposing edge indexes to 0 (gets set in graph validator).
+          newedge.set_opp_index(0);
+
+          // Get signs from the base directed edge
+          if (directededge->sign()) {
+            std::vector<SignInfo> signs = tile->GetSigns(edgeid.id());
+            if (signs.size() == 0) {
+              LOG_ERROR("Base edge should have signs, but none found");
+            }
+            tilebuilder.AddSigns(tilebuilder.directededges().size(), signs);
+          }
+
+          // Get turn lanes from the base directed edge
+          if (directededge->turnlanes()) {
+            uint32_t offset = tile->turnlanes_offset(edgeid.id());
+            tilebuilder.AddTurnLanes(tilebuilder.directededges().size(), tile->GetName(offset));
+          }
+
+          // Get access restrictions from the base directed edge. Add these to
+          // the list of access restrictions in the new tile. Update the
+          // edge index in the restriction to be the current directed edge Id
+          if (directededge->access_restriction()) {
+            auto restrictions = tile->GetAccessRestrictions(edgeid.id(), kAllAccess);
+            for (const auto& res : restrictions) {
+              tilebuilder.AddAccessRestriction(AccessRestriction(tilebuilder.directededges().size(),
+                                                                 res.type(), res.modes(), res.value()));
+            }
+          }
+
+          // Copy lane connectivity
+          if (directededge->laneconnectivity()) {
+            auto laneconnectivity = tile->GetLaneConnectivity(edgeid.id());
+            if (laneconnectivity.size() == 0) {
+              LOG_ERROR("Base edge should have lane connectivity, but none found");
+            }
+            for (auto& lc : laneconnectivity) {
+              lc.set_to(tilebuilder.directededges().size());
+            }
+            tilebuilder.AddLaneConnectivity(laneconnectivity);
+          }
+
+          // Get edge info, shape, and names from the old tile and add to the
+          // new. Cannot use edge info offset since edges in arterial and
+          // highway hierarchy can cross base tiles! Use a hash based on the
+          // encoded shape plus way Id.
+          bool added;
+          auto edgeinfo = tile->edgeinfo(directededge);
+          std::string encoded_shape = edgeinfo.encoded_shape();
+          uint32_t w = hasher(encoded_shape + std::to_string(edgeinfo.wayid()));
+          uint32_t edge_info_offset =
+              tilebuilder.AddEdgeInfo(w, nodeid, directededge->endnode(), edgeinfo.wayid(),
+                                      edgeinfo.mean_elevation(), edgeinfo.bike_network(),
+                                      edgeinfo.speed_limit(), encoded_shape, edgeinfo.GetNames(),
+                                      edgeinfo.GetTaggedValues(), edgeinfo.GetTaggedValues(true),
+                                      edgeinfo.GetTypes(), added);
+          newedge.set_edgeinfo_offset(edge_info_offset);
+          wayid.push_back(edgeinfo.wayid());
+          endnode.push_back(directededge->endnode());
+
+          // Add directed edge
+          tilebuilder.directededges().emplace_back(std::move(newedge));
+          ++edge_count;
+        }
+
+        // Add the node to the tilebuilder unless no edges remain
+        if (edge_count > 0) {
+          // Add a node builder to the tile. Update the edge count and edgeindex
+          GraphId new_node(nodeid.tileid(), nodeid.level(), tilebuilder.nodes().size());
+          tilebuilder.nodes().push_back(*nodeinfo);
+          NodeInfo& node = tilebuilder.nodes().back();
+          node.set_edge_count(edge_count);
+          node.set_edge_index(edge_index);
+          const auto& admin = tile->admininfo(nodeinfo->admin_index());
+          node.set_admin_index(tilebuilder.AddAdmin(admin.country_text(), admin.state_text(),
+                                                    admin.country_iso(), admin.state_iso()));
+
+          // Get named signs from the base node
+          if (nodeinfo->named_intersection()) {
+            std::vector<SignInfo> signs = tile->GetSigns(nodeid.id(), true);
+            if (signs.size() == 0) {
+              LOG_ERROR("Base node should have signs, but none found");
+            }
+            node.set_named_intersection(true);
+            tilebuilder.AddSigns(tilebuilder.nodes().size() - 1, signs);
+          }
+
+          // Associate the old node to the new node.
+          old_to_new[nodeid] = new_node;
+
+          // Check if edges at this node can be aggregated. Only 2 edges, same way Id (so that
+          // edge attributes should match), don't end at same node (no loops).
+          // if (edge_count == 2 && wayid[0] == wayid[1] && endnode[0] != endnode[1]) { //REMOVE
+          //   ++can_aggregate;
+          // }
+        } else {
+          // ++n_filtered_nodes; //COUNTS
+        }
+      }
+
+      // Store the updated tile data (or remove tile if all edges are filtered)
+      if (tilebuilder.nodes().size() > 0) {
+        tilebuilder.StoreTileData();
+      } else {
+        // Remove the tile - all nodes and edges were filtered
+        std::string file_location =
+            reader.tile_dir() + filesystem::path::preferred_separator + GraphTile::FileSuffix(tile_id);
+        remove(file_location.c_str());
+        LOG_INFO("Remove file: " + file_location + " all edges were filtered");
+      }
+
+      if (reader.OverCommitted()) {
+        reader.Trim();
+      }
+    }
+  }
+
+
+
+
+
 
 } // namespace gbfs
 } // namespace mjolnir

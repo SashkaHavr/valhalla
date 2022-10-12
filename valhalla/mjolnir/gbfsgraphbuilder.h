@@ -101,6 +101,8 @@ private:
 
   void create_new_nodes();
 
+  void construct_full_graph();
+
   old_to_new_node find_nodes(sequence<old_to_new_node>& old_to_new, const GraphId& node);
   DirectedEdge make_network_connection_edge(GraphId start_node, GraphId end_node, GraphTileBuilder* tile_builder);
   bool OpposingEdgeInfoMatches(const graph_tile_ptr& tile, const DirectedEdge* edge);
