@@ -323,6 +323,9 @@ enum class Use : uint8_t {
   kEgressConnection = 52,   // Connection to a egress node
   kPlatformConnection = 53, // Connection to a platform node
   kTransitConnection = 54,  // Connection to multi-use transit stop
+
+  // GBFS uses
+  kNetworkConnection = 55
 };
 inline std::string to_string(Use u) {
   static const std::unordered_map<uint8_t, std::string> UseStrings = {

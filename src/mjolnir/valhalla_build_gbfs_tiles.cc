@@ -22,6 +22,7 @@ int main(int argc, char** argv) {
   filesystem::path config_file_path;
   std::vector<std::string> input_files;
   boost::property_tree::ptree pt;
+  bool parse_osm_first = true;
 
   try {
 
@@ -38,6 +39,7 @@ int main(int argc, char** argv) {
       ("v,version","Print the version of this software.")
       ("c,config", "Path to the configuration file", cxxopts::value<std::string>())
       ("i,inline-config", "Inline JSON config", cxxopts::value<std::string>())
+      ("f, parse_osm_first", "Parse osm data first, default is true", cxxopts::value<std::string>())
       ("input_files", "positional arguments", cxxopts::value<std::vector<std::string>>(input_files));
     // clang-format on
 
@@ -86,13 +88,17 @@ int main(int argc, char** argv) {
       std::cerr << "Input file is required\n\n" << options.help() << "\n\n";
       return EXIT_FAILURE;
     }
+
+    if(result.count("parse_osm_first")) {
+      parse_osm_first = result["parse_osm_first"].as<std::string>() == "t";
+    }
   } catch (const cxxopts::OptionException& e) {
     std::cout << "Unable to parse command line options because: " << e.what() << std::endl;
   }
 
   // Build some tiles!
   gbfs_graph_builder g(pt, input_files);
-  if (g.build()) {
+  if (g.build(parse_osm_first)) {
     return EXIT_SUCCESS;
   } else {
     return EXIT_FAILURE;
