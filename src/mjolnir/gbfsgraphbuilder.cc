@@ -21,7 +21,8 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
   new_to_old_bin = tile_dir + new_to_old_file;
   old_to_new_bin = tile_dir + old_to_new_file;
 
-  create_new_nodes();
+  // create_new_nodes();
+  construct_full_graph();
 
   LOG_INFO("GBFS ----- Start last build stages");
   build_tile_set(config, input_files, valhalla::mjolnir::BuildStage::kElevation, valhalla::mjolnir::BuildStage::kCleanup);
@@ -641,18 +642,19 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
   void gbfs_graph_builder::construct_full_graph() {
     std::unordered_map<baldr::GraphId, baldr::GraphId> old_to_new;
     GraphReader reader(config.get_child("mjolnir"));
+    std::string tile_dir = config.get<std::string>("mjolnir.tile_dir");
 
 
     auto local_tiles = reader.GetTileSet(TileHierarchy::levels().back().level);
     for (const auto& tile_id : local_tiles) {
       // Create a new tilebuilder - should copy header information
-      GraphTileBuilder tilebuilder(reader.tile_dir(), tile_id, false);
+      GraphTileBuilder tilebuilder(tile_dir, tile_id, false);
 
       // Get the graph tile. Read from this tile to create the new tile.
       graph_tile_ptr tile = reader.GetGraphTile(tile_id);
       assert(tile);
 
-      std::hash<std::string> hasher;
+      
       GraphId nodeid(tile_id.tileid(), tile_id.level(), 0);
       for (uint32_t i = 0; i < tile->header()->nodecount(); ++i, ++nodeid) {
         // Count of edges added for this node
@@ -662,8 +664,8 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
         uint32_t edge_index = tilebuilder.directededges().size();
 
         // Iterate through directed edges outbound from this node
-        std::vector<uint64_t> wayid;
-        std::vector<GraphId> endnode;
+        // std::vector<uint64_t> wayid; //REMOVE
+        // std::vector<GraphId> endnode;
         const NodeInfo* nodeinfo = tile->node(nodeid);
         GraphId edgeid(nodeid.tileid(), nodeid.level(), nodeinfo->edge_index());
         for (uint32_t j = 0; j < nodeinfo->edge_count(); ++j, ++edgeid) {
@@ -674,94 +676,13 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
           //   continue;
           // }
 
-          // Copy the directed edge information
-          DirectedEdge newedge = *directededge;
+          copy_edge(directededge, edgeid, tile, tilebuilder, edge_count, nodeid);
 
-          // Set opposing edge indexes to 0 (gets set in graph validator).
-          newedge.set_opp_index(0);
-
-          // Get signs from the base directed edge
-          if (directededge->sign()) {
-            std::vector<SignInfo> signs = tile->GetSigns(edgeid.id());
-            if (signs.size() == 0) {
-              LOG_ERROR("Base edge should have signs, but none found");
-            }
-            tilebuilder.AddSigns(tilebuilder.directededges().size(), signs);
-          }
-
-          // Get turn lanes from the base directed edge
-          if (directededge->turnlanes()) {
-            uint32_t offset = tile->turnlanes_offset(edgeid.id());
-            tilebuilder.AddTurnLanes(tilebuilder.directededges().size(), tile->GetName(offset));
-          }
-
-          // Get access restrictions from the base directed edge. Add these to
-          // the list of access restrictions in the new tile. Update the
-          // edge index in the restriction to be the current directed edge Id
-          if (directededge->access_restriction()) {
-            auto restrictions = tile->GetAccessRestrictions(edgeid.id(), kAllAccess);
-            for (const auto& res : restrictions) {
-              tilebuilder.AddAccessRestriction(AccessRestriction(tilebuilder.directededges().size(),
-                                                                 res.type(), res.modes(), res.value()));
-            }
-          }
-
-          // Copy lane connectivity
-          if (directededge->laneconnectivity()) {
-            auto laneconnectivity = tile->GetLaneConnectivity(edgeid.id());
-            if (laneconnectivity.size() == 0) {
-              LOG_ERROR("Base edge should have lane connectivity, but none found");
-            }
-            for (auto& lc : laneconnectivity) {
-              lc.set_to(tilebuilder.directededges().size());
-            }
-            tilebuilder.AddLaneConnectivity(laneconnectivity);
-          }
-
-          // Get edge info, shape, and names from the old tile and add to the
-          // new. Cannot use edge info offset since edges in arterial and
-          // highway hierarchy can cross base tiles! Use a hash based on the
-          // encoded shape plus way Id.
-          bool added;
-          auto edgeinfo = tile->edgeinfo(directededge);
-          std::string encoded_shape = edgeinfo.encoded_shape();
-          uint32_t w = hasher(encoded_shape + std::to_string(edgeinfo.wayid()));
-          uint32_t edge_info_offset =
-              tilebuilder.AddEdgeInfo(w, nodeid, directededge->endnode(), edgeinfo.wayid(),
-                                      edgeinfo.mean_elevation(), edgeinfo.bike_network(),
-                                      edgeinfo.speed_limit(), encoded_shape, edgeinfo.GetNames(),
-                                      edgeinfo.GetTaggedValues(), edgeinfo.GetTaggedValues(true),
-                                      edgeinfo.GetTypes(), added);
-          newedge.set_edgeinfo_offset(edge_info_offset);
-          wayid.push_back(edgeinfo.wayid());
-          endnode.push_back(directededge->endnode());
-
-          // Add directed edge
-          tilebuilder.directededges().emplace_back(std::move(newedge));
-          ++edge_count;
         }
 
         // Add the node to the tilebuilder unless no edges remain
         if (edge_count > 0) {
-          // Add a node builder to the tile. Update the edge count and edgeindex
-          GraphId new_node(nodeid.tileid(), nodeid.level(), tilebuilder.nodes().size());
-          tilebuilder.nodes().push_back(*nodeinfo);
-          NodeInfo& node = tilebuilder.nodes().back();
-          node.set_edge_count(edge_count);
-          node.set_edge_index(edge_index);
-          const auto& admin = tile->admininfo(nodeinfo->admin_index());
-          node.set_admin_index(tilebuilder.AddAdmin(admin.country_text(), admin.state_text(),
-                                                    admin.country_iso(), admin.state_iso()));
-
-          // Get named signs from the base node
-          if (nodeinfo->named_intersection()) {
-            std::vector<SignInfo> signs = tile->GetSigns(nodeid.id(), true);
-            if (signs.size() == 0) {
-              LOG_ERROR("Base node should have signs, but none found");
-            }
-            node.set_named_intersection(true);
-            tilebuilder.AddSigns(tilebuilder.nodes().size() - 1, signs);
-          }
+          GraphId new_node = copy_node(nodeid, nodeinfo, tile, tilebuilder, edge_count, edge_index);
 
           // Associate the old node to the new node.
           old_to_new[nodeid] = new_node;
@@ -782,7 +703,7 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
       } else {
         // Remove the tile - all nodes and edges were filtered
         std::string file_location =
-            reader.tile_dir() + filesystem::path::preferred_separator + GraphTile::FileSuffix(tile_id);
+            tile_dir + filesystem::path::preferred_separator + GraphTile::FileSuffix(tile_id);
         remove(file_location.c_str());
         LOG_INFO("Remove file: " + file_location + " all edges were filtered");
       }
@@ -791,10 +712,161 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
         reader.Trim();
       }
     }
+
+
+
+
+
+
+    //update end nodes in edges
+
+    reader.Clear();
+    LOG_INFO("Update end nodes of directed edges");
+    int found = 0;
+
+    // Iterate through all tiles in the local level
+    local_tiles = reader.GetTileSet(TileHierarchy::levels().back().level);
+    for (const auto& tile_id : local_tiles) {
+      // Get the graph tile. Skip if no tile exists (should not happen!?)
+      graph_tile_ptr tile = reader.GetGraphTile(tile_id);
+      assert(tile);
+
+      // Create a new tilebuilder - should copy header information
+      GraphTileBuilder tilebuilder(tile_dir, tile_id, false);
+
+      // Copy nodes (they do not change)
+      std::vector<NodeInfo> nodes;
+      size_t n = tile->header()->nodecount();
+      nodes.reserve(n);
+      const NodeInfo* orig_nodes = tile->node(0);
+      std::copy(orig_nodes, orig_nodes + n, std::back_inserter(nodes));
+
+      // Iterate through all directed edges - update end nodes
+      std::vector<DirectedEdge> directededges;
+      GraphId edgeid(tile_id.tileid(), tile_id.level(), 0);
+      for (uint32_t j = 0; j < tile->header()->directededgecount(); ++j, ++edgeid) {
+        const DirectedEdge* edge = tile->directededge(j);
+
+        // Find the end node in the old_to_new mapping
+        GraphId end_node;
+        auto iter = old_to_new.find(edge->endnode());
+        if (iter == old_to_new.end()) {
+          LOG_ERROR("UpdateEndNodes - failed to find associated node");
+        } else {
+          end_node = iter->second;
+          found++;
+        }
+
+        // Copy the edge to the directededges vector and update the end node
+        directededges.push_back(*edge);
+        DirectedEdge& new_edge = directededges.back();
+        new_edge.set_endnode(end_node);
+      }
+
+      // Update the tile with new directededges.
+      tilebuilder.Update(nodes, directededges);
+
+      if (reader.OverCommitted()) {
+        reader.Trim();
+      }
+    }
   }
 
 
+  DirectedEdge& gbfs_graph_builder::copy_edge(const DirectedEdge* directededge, GraphId& edgeid, 
+                                                graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, uint32_t& edge_count, GraphId& nodeid) {
+    // Copy the directed edge information
+    DirectedEdge newedge = *directededge;
 
+    // Set opposing edge indexes to 0 (gets set in graph validator).
+    newedge.set_opp_index(0);
+
+    // Get signs from the base directed edge
+    if (directededge->sign()) {
+      std::vector<SignInfo> signs = tile->GetSigns(edgeid.id());
+      if (signs.size() == 0) {
+        LOG_ERROR("Base edge should have signs, but none found");
+      }
+      tilebuilder.AddSigns(tilebuilder.directededges().size(), signs);
+    }
+
+    // Get turn lanes from the base directed edge
+    if (directededge->turnlanes()) {
+      uint32_t offset = tile->turnlanes_offset(edgeid.id());
+      tilebuilder.AddTurnLanes(tilebuilder.directededges().size(), tile->GetName(offset));
+    }
+
+    // Get access restrictions from the base directed edge. Add these to
+    // the list of access restrictions in the new tile. Update the
+    // edge index in the restriction to be the current directed edge Id
+    if (directededge->access_restriction()) {
+      auto restrictions = tile->GetAccessRestrictions(edgeid.id(), kAllAccess);
+      for (const auto& res : restrictions) {
+        tilebuilder.AddAccessRestriction(AccessRestriction(tilebuilder.directededges().size(),
+                                                           res.type(), res.modes(), res.value()));
+      }
+    }
+
+    // Copy lane connectivity
+    if (directededge->laneconnectivity()) {
+      auto laneconnectivity = tile->GetLaneConnectivity(edgeid.id());
+      if (laneconnectivity.size() == 0) {
+        LOG_ERROR("Base edge should have lane connectivity, but none found");
+      }
+      for (auto& lc : laneconnectivity) {
+        lc.set_to(tilebuilder.directededges().size());
+      }
+      tilebuilder.AddLaneConnectivity(laneconnectivity);
+    }
+
+    // Get edge info, shape, and names from the old tile and add to the
+    // new. Cannot use edge info offset since edges in arterial and
+    // highway hierarchy can cross base tiles! Use a hash based on the
+    // encoded shape plus way Id.
+    bool added;
+    auto edgeinfo = tile->edgeinfo(directededge);
+    std::string encoded_shape = edgeinfo.encoded_shape();
+    std::hash<std::string> hasher;
+    uint32_t w = hasher(encoded_shape + std::to_string(edgeinfo.wayid()));
+    uint32_t edge_info_offset =
+        tilebuilder.AddEdgeInfo(w, nodeid, directededge->endnode(), edgeinfo.wayid(),
+                                edgeinfo.mean_elevation(), edgeinfo.bike_network(),
+                                edgeinfo.speed_limit(), encoded_shape, edgeinfo.GetNames(),
+                                edgeinfo.GetTaggedValues(), edgeinfo.GetTaggedValues(true),
+                                edgeinfo.GetTypes(), added);
+    newedge.set_edgeinfo_offset(edge_info_offset);
+    // wayid.push_back(edgeinfo.wayid()); //REMOVE
+    // endnode.push_back(directededge->endnode());
+
+    // Add directed edge
+    tilebuilder.directededges().emplace_back(std::move(newedge));
+    ++edge_count;
+    return tilebuilder.directededges().back();
+  }
+
+  GraphId gbfs_graph_builder::copy_node(GraphId& nodeid, const NodeInfo* nodeinfo, graph_tile_ptr& tile, 
+                                          GraphTileBuilder& tilebuilder, uint32_t edge_count, uint32_t edge_index) {
+    // Add a node builder to the tile. Update the edge count and edgeindex
+    GraphId new_node(nodeid.tileid(), nodeid.level(), tilebuilder.nodes().size());
+    tilebuilder.nodes().push_back(*nodeinfo);
+    NodeInfo& node = tilebuilder.nodes().back();
+    node.set_edge_count(edge_count);
+    node.set_edge_index(edge_index);
+    const auto& admin = tile->admininfo(nodeinfo->admin_index());
+    node.set_admin_index(tilebuilder.AddAdmin(admin.country_text(), admin.state_text(),
+                                              admin.country_iso(), admin.state_iso()));
+
+    // Get named signs from the base node
+    if (nodeinfo->named_intersection()) {
+      std::vector<SignInfo> signs = tile->GetSigns(nodeid.id(), true);
+      if (signs.size() == 0) {
+        LOG_ERROR("Base node should have signs, but none found");
+      }
+      node.set_named_intersection(true);
+      tilebuilder.AddSigns(tilebuilder.nodes().size() - 1, signs);
+    }
+    return new_node;
+  }
 
 
 

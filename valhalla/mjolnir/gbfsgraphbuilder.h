@@ -106,6 +106,11 @@ private:
   old_to_new_node find_nodes(sequence<old_to_new_node>& old_to_new, const GraphId& node);
   DirectedEdge make_network_connection_edge(GraphId start_node, GraphId end_node, GraphTileBuilder* tile_builder);
   bool OpposingEdgeInfoMatches(const graph_tile_ptr& tile, const DirectedEdge* edge);
+
+
+
+  DirectedEdge& copy_edge(const DirectedEdge* directededge, GraphId& edgeid, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, uint32_t& edge_count, GraphId& nodeid);
+  GraphId copy_node(GraphId& nodeid, const NodeInfo* nodeinfo, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, uint32_t edge_count, uint32_t edge_index);
 };
 
 
