@@ -80,7 +80,11 @@ struct gbfs_graph_builder {
   gbfs_graph_builder(boost::property_tree::ptree& original_config,
                    const std::vector<std::string>& input_files) :
                    config(original_config),
-                   input_files(input_files) {}
+                   input_files(input_files) {
+    config.get_child("mjolnir").erase("tile_extract");
+    config.get_child("mjolnir").erase("tile_url");
+    config.get_child("mjolnir").erase("traffic_extract");
+  }
 
   bool build(bool parse_osm_first);
 
@@ -107,7 +111,8 @@ private:
   DirectedEdge make_network_connection_edge(GraphId start_node, GraphId end_node, GraphTileBuilder* tile_builder);
   bool OpposingEdgeInfoMatches(const graph_tile_ptr& tile, const DirectedEdge* edge);
 
-
+  void iterate();
+  void iterate_to_update();
 
   DirectedEdge& copy_edge(const DirectedEdge* directededge, GraphId& edgeid, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, uint32_t& edge_count, GraphId& nodeid);
   GraphId copy_node(GraphId& nodeid, const NodeInfo* nodeinfo, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, uint32_t edge_count, uint32_t edge_index);

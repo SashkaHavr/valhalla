@@ -1,4 +1,5 @@
 #include "valhalla/mjolnir/gbfsgraphbuilder.h"
+#include <boost/format.hpp>
 
 namespace valhalla {
 namespace mjolnir {
@@ -6,6 +7,10 @@ namespace gbfs {
 
 bool gbfs_graph_builder::build(bool parse_osm_first) {
   LOG_INFO("GBFS ----- Build started");
+
+  tile_dir = config.get<std::string>("mjolnir.tile_dir");
+  new_to_old_bin = tile_dir + new_to_old_file;
+  old_to_new_bin = tile_dir + old_to_new_file;
 
   if(parse_osm_first) {
     LOG_INFO("GBFS ----- Parse OSM Data");
@@ -16,16 +21,21 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
   }
 
 
-  LOG_INFO("GBFS ----- Create new nodes");
-  tile_dir = config.get<std::string>("mjolnir.tile_dir");
-  new_to_old_bin = tile_dir + new_to_old_file;
-  old_to_new_bin = tile_dir + old_to_new_file;
+  // LOG_INFO("GBFS ----- Create new nodes");
+  // // // // // create_new_nodes(); //REMOVE
+  // construct_full_graph();
 
-  // create_new_nodes();
-  construct_full_graph();
+  LOG_INFO("GBFS ----- Updating access");
+  iterate_to_update();
 
-  LOG_INFO("GBFS ----- Start last build stages");
+  LOG_INFO("GBFS ----- Validating");
+  iterate();
+
+  // LOG_INFO("GBFS ----- Start last build stages");
   build_tile_set(config, input_files, valhalla::mjolnir::BuildStage::kElevation, valhalla::mjolnir::BuildStage::kCleanup);
+
+  // LOG_INFO("GBFS ----- Validating");
+  // iterate();
 
   return true;
 }
@@ -212,7 +222,6 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
 
   void gbfs_graph_builder::create_new_nodes() {
     GraphReader reader(config.get_child("mjolnir"));
-    std::string tile_dir = config.get_child("mjolnir").get<std::string>("tile_dir", "");
     std::unordered_map<GraphId, uint32_t> new_nodes;
 
     // lambda to get the next "new" node Id in a given tile
@@ -642,7 +651,6 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
   void gbfs_graph_builder::construct_full_graph() {
     std::unordered_map<baldr::GraphId, baldr::GraphId> old_to_new;
     GraphReader reader(config.get_child("mjolnir"));
-    std::string tile_dir = config.get<std::string>("mjolnir.tile_dir");
 
 
     auto local_tiles = reader.GetTileSet(TileHierarchy::levels().back().level);
@@ -770,6 +778,69 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
         reader.Trim();
       }
     }
+  }
+
+  void gbfs_graph_builder::iterate() {
+    GraphReader reader(config.get_child("mjolnir"));
+    int count = 0;
+    auto local_tiles = reader.GetTileSet(TileHierarchy::levels().back().level);
+    for (const auto& tile_id : local_tiles) {
+      // Get the graph tile. Skip if no tile exists (should not happen!?)
+      graph_tile_ptr tile = reader.GetGraphTile(tile_id);
+      assert(tile);
+
+      GraphId edgeid(tile_id.tileid(), tile_id.level(), 0);
+      for (uint32_t j = 0; j < tile->header()->directededgecount(); ++j, ++edgeid) {
+        const DirectedEdge* edge = tile->directededge(j);
+
+          if(edge->forwardaccess() != kPedestrianAccess || edge->reverseaccess() != kPedestrianAccess) {
+            LOG_INFO((boost::format("Access: %1%, %2%") % edge->forwardaccess() % edge->reverseaccess()).str());
+            throw std::exception();
+          }
+
+          count++;
+      }
+    }
+    LOG_INFO((boost::format("GBFS ----- Edges checked: %1%") % count).str());
+  }
+
+  void gbfs_graph_builder::iterate_to_update() {
+    GraphReader graph_reader(config.get_child("mjolnir"));
+    int count = 0;
+    auto local_tiles = graph_reader.GetTileSet(TileHierarchy::levels().back().level);
+    for (const auto& tile_id : local_tiles) {
+      // Skip if no nodes exist in the tile
+      graph_tile_ptr tile = graph_reader.GetGraphTile(tile_id);
+      if (!tile) {
+        continue;
+      }
+  
+      // Create a new tile builder
+      GraphTileBuilder tilebuilder(tile_dir, tile_id, false);
+  
+      // Update end nodes of transit connection directed edges
+      std::vector<NodeInfo> nodes;
+      std::vector<DirectedEdge> directededges;
+      for (uint32_t i = 0; i < tilebuilder.header()->nodecount(); i++) {
+        NodeInfo nodeinfo = tilebuilder.node(i);
+        uint32_t idx = nodeinfo.edge_index();
+        for (uint32_t j = 0; j < nodeinfo.edge_count(); j++, idx++) {
+          DirectedEdge directededge = tilebuilder.directededge(idx);
+  
+          directededge.set_forwardaccess(kPedestrianAccess);
+          directededge.set_reverseaccess(kPedestrianAccess);
+  
+          // Add the directed edge to the local list
+          directededges.emplace_back(std::move(directededge));
+          count++;
+        }
+  
+        // Add the node to the local list
+        nodes.emplace_back(std::move(nodeinfo));
+      }
+      tilebuilder.Update(nodes, directededges);
+    }
+    LOG_INFO((boost::format("GBFS ----- Edges updated: %1%") % count).str());
   }
 
 
