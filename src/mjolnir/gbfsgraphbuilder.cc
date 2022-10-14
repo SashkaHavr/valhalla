@@ -26,10 +26,22 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
   // construct_full_graph();
 
   LOG_INFO("GBFS ----- Updating access");
-  iterate_to_update();
+  iterate_to_update([](DirectedEdge& edge) {
+    edge.set_forwardaccess(kPedestrianAccess);
+    edge.set_reverseaccess(kPedestrianAccess);
+  }, [](NodeInfo& node) {
+
+  });
 
   LOG_INFO("GBFS ----- Validating");
-  iterate();
+  iterate_to_read([](const DirectedEdge& edge) {
+    if(edge.forwardaccess() != kPedestrianAccess || edge.reverseaccess() != kPedestrianAccess) {
+      LOG_INFO((boost::format("Access: %1%, %2%") % edge.forwardaccess() % edge.reverseaccess()).str());
+      throw std::exception();
+    }
+  }, [](const NodeInfo& node) {
+    
+  });
 
   // LOG_INFO("GBFS ----- Start last build stages");
   build_tile_set(config, input_files, valhalla::mjolnir::BuildStage::kElevation, valhalla::mjolnir::BuildStage::kCleanup);
@@ -730,7 +742,6 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
 
     reader.Clear();
     LOG_INFO("Update end nodes of directed edges");
-    int found = 0;
 
     // Iterate through all tiles in the local level
     local_tiles = reader.GetTileSet(TileHierarchy::levels().back().level);
@@ -762,7 +773,6 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
           LOG_ERROR("UpdateEndNodes - failed to find associated node");
         } else {
           end_node = iter->second;
-          found++;
         }
 
         // Copy the edge to the directededges vector and update the end node
@@ -780,31 +790,34 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
     }
   }
 
-  void gbfs_graph_builder::iterate() {
+  template <typename E, typename N>
+  void gbfs_graph_builder::iterate_to_read(E edge_callback, N node_callback) {
     GraphReader reader(config.get_child("mjolnir"));
     int count = 0;
     auto local_tiles = reader.GetTileSet(TileHierarchy::levels().back().level);
     for (const auto& tile_id : local_tiles) {
       // Get the graph tile. Skip if no tile exists (should not happen!?)
       graph_tile_ptr tile = reader.GetGraphTile(tile_id);
-      assert(tile);
+      if (!tile) {
+        continue;
+      }
 
-      GraphId edgeid(tile_id.tileid(), tile_id.level(), 0);
-      for (uint32_t j = 0; j < tile->header()->directededgecount(); ++j, ++edgeid) {
-        const DirectedEdge* edge = tile->directededge(j);
-
-          if(edge->forwardaccess() != kPedestrianAccess || edge->reverseaccess() != kPedestrianAccess) {
-            LOG_INFO((boost::format("Access: %1%, %2%") % edge->forwardaccess() % edge->reverseaccess()).str());
-            throw std::exception();
-          }
-
+      for (uint32_t i = 0; i < tile->header()->nodecount(); i++) {
+        const NodeInfo* nodeinfo = tile->node(i);
+        uint32_t idx = nodeinfo->edge_index();
+        for (uint32_t j = 0; j < nodeinfo->edge_count(); j++, idx++) {
+          const DirectedEdge* edge = tile->directededge(idx);
+          edge_callback(*edge);
           count++;
+        }
+        node_callback(*nodeinfo);
       }
     }
     LOG_INFO((boost::format("GBFS ----- Edges checked: %1%") % count).str());
   }
 
-  void gbfs_graph_builder::iterate_to_update() {
+  template <typename E, typename N>
+  void gbfs_graph_builder::iterate_to_update(E edge_callback, N node_callback) {
     GraphReader graph_reader(config.get_child("mjolnir"));
     int count = 0;
     auto local_tiles = graph_reader.GetTileSet(TileHierarchy::levels().back().level);
@@ -822,19 +835,17 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
       std::vector<NodeInfo> nodes;
       std::vector<DirectedEdge> directededges;
       for (uint32_t i = 0; i < tilebuilder.header()->nodecount(); i++) {
-        NodeInfo nodeinfo = tilebuilder.node(i);
+        NodeInfo& nodeinfo = tilebuilder.node(i);
         uint32_t idx = nodeinfo.edge_index();
         for (uint32_t j = 0; j < nodeinfo.edge_count(); j++, idx++) {
-          DirectedEdge directededge = tilebuilder.directededge(idx);
-  
-          directededge.set_forwardaccess(kPedestrianAccess);
-          directededge.set_reverseaccess(kPedestrianAccess);
-  
+          DirectedEdge& directededge = tilebuilder.directededge(idx);
+          edge_callback(directededge);
           // Add the directed edge to the local list
           directededges.emplace_back(std::move(directededge));
           count++;
         }
   
+        node_callback(nodeinfo);
         // Add the node to the local list
         nodes.emplace_back(std::move(nodeinfo));
       }

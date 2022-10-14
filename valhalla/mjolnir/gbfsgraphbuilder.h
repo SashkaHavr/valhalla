@@ -111,8 +111,22 @@ private:
   DirectedEdge make_network_connection_edge(GraphId start_node, GraphId end_node, GraphTileBuilder* tile_builder);
   bool OpposingEdgeInfoMatches(const graph_tile_ptr& tile, const DirectedEdge* edge);
 
-  void iterate();
-  void iterate_to_update();
+
+  /**
+   * Iterates through tiles and reads nodes and edges
+   * @param edge_callback takes DirectedEdge as parameter
+   * @param node_callback takes NodeInfo as parameter
+  */
+  template <typename E, typename N>
+  void iterate_to_read(E edge_callback, N node_callback);
+
+  /**
+   * Iterates through tiles and updates nodes and edges
+   * @param edge_callback takes DirectedEdge& as parameter to update it's fields
+   * @param node_callback takes NodeInfo& as parameter to update it's fields
+  */
+  template <typename E, typename N>
+  void iterate_to_update(E edge_callback, N node_callback);
 
   DirectedEdge& copy_edge(const DirectedEdge* directededge, GraphId& edgeid, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, uint32_t& edge_count, GraphId& nodeid);
   GraphId copy_node(GraphId& nodeid, const NodeInfo* nodeinfo, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, uint32_t edge_count, uint32_t edge_index);
