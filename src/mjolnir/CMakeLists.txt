@@ -46,7 +46,8 @@ set(sources
   speed_assigner.h
   timeparsing.cc
   util.cc
-  gbfsgraphbuilder.cc)
+  gbfsgraphbuilder.cc
+  gbfsoperatorgetter.cc)
 
 set (sources_with_warnings
   admin.cc
