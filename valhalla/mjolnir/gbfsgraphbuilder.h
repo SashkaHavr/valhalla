@@ -63,6 +63,14 @@ struct old_to_new_node {
     }
 };
 
+struct bicycle_edge {
+  GraphId edge_id;
+  int access_count;
+
+  bicycle_edge(GraphId edge_id, int access_count)
+    : edge_id(edge_id), access_count(access_count) {}
+};
+
 struct gbfs_graph_builder {
   boost::property_tree::ptree& config;
   const std::vector<std::string>& input_files;
@@ -105,7 +113,8 @@ private:
 
   void create_new_nodes();
 
-  void construct_full_graph();
+  void construct_full_graph(std::unordered_map<baldr::GraphId, std::vector<bicycle_edge>>& nodes_to_bicycle_edges);
+  void update_end_nodes(std::vector<std::unordered_map<baldr::GraphId, std::vector<DirectedEdge>>> new_edges, std::vector<std::unordered_map<baldr::GraphId, baldr::GraphId>> old_to_new_nodes);
 
   old_to_new_node find_nodes(sequence<old_to_new_node>& old_to_new, const GraphId& node);
   DirectedEdge make_network_connection_edge(GraphId start_node, GraphId end_node, GraphTileBuilder* tile_builder);
@@ -122,13 +131,13 @@ private:
 
   /**
    * Iterates through tiles and updates nodes and edges
-   * @param edge_callback takes DirectedEdge& as parameter to update it's fields
+   * @param edge_callback takes DirectedEdge&, GraphId& of an edge and GraphId& of an outbound node as parameter to update it's fields
    * @param node_callback takes NodeInfo& as parameter to update it's fields
   */
   template <typename E, typename N>
   void iterate_to_update(E edge_callback, N node_callback);
 
-  DirectedEdge& copy_edge(const DirectedEdge* directededge, GraphId& edgeid, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, uint32_t& edge_count, GraphId& nodeid);
+  DirectedEdge& copy_edge(const DirectedEdge* directededge, GraphId& edgeid, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, GraphId& nodeid);
   GraphId copy_node(GraphId& nodeid, const NodeInfo* nodeinfo, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, uint32_t edge_count, uint32_t edge_index);
 };
 
