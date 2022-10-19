@@ -40,29 +40,6 @@ struct gbfs_urls {
   
 };
 
-struct new_to_old_node {
-  GraphId base_node;
-  GraphId new_node;
-  int access;
-
-  new_to_old_node(GraphId base_node, GraphId new_node, uint16_t access) 
-    : base_node(base_node), new_node(new_node), access(access) {
-
-  }
-};
-
-struct old_to_new_node {
-  GraphId base_node;
-  GraphId pedestrian_node;
-  GraphId bike_node;
-  uint32_t density;
-
-  old_to_new_node(GraphId base_node, GraphId pedestrian_node, GraphId bike_node, uint32_t density)
-    : base_node(base_node), pedestrian_node(pedestrian_node), bike_node(bike_node), density(density) {
-
-    }
-};
-
 struct bicycle_edge {
   GraphId edge_id;
   int access_count;
@@ -74,16 +51,7 @@ struct bicycle_edge {
 struct gbfs_graph_builder {
   boost::property_tree::ptree& config;
   const std::vector<std::string>& input_files;
-  OSMData osm_data{0};
   std::string tile_dir;
-  std::map<baldr::GraphId, size_t> tiles;
-
-  // Temporary files used during tile building
-  const std::string new_to_old_file = "new_nodes_to_old_nodes.bin";
-  const std::string old_to_new_file = "old_nodes_to_new_nodes.bin";
-
-  std::string new_to_old_bin;
-  std::string old_to_new_bin;
 
   gbfs_graph_builder(boost::property_tree::ptree& original_config,
                    const std::vector<std::string>& input_files) :
@@ -92,34 +60,18 @@ struct gbfs_graph_builder {
     config.get_child("mjolnir").erase("tile_extract");
     config.get_child("mjolnir").erase("tile_url");
     config.get_child("mjolnir").erase("traffic_extract");
+    tile_dir = config.get<std::string>("mjolnir.tile_dir");
   }
 
   bool build(bool parse_osm_first);
 
-
 private:
-  void init();
-  void parse_ways();
-  void parse_relations();
-  void parse_nodes();
-  void construct_edges();
-  void build_graph();
-  void enhance();
-  void filter();
-  void elevation();
-  void cleanup();
-
   void fetch_gbfs_data();
 
-  void create_new_nodes();
-
+  /**
+   * Construct bike and foot networks and connect them
+  */
   void construct_full_graph(std::unordered_map<baldr::GraphId, std::vector<bicycle_edge>>& nodes_to_bicycle_edges);
-  void update_end_nodes(std::vector<std::unordered_map<baldr::GraphId, std::vector<DirectedEdge>>> new_edges, std::vector<std::unordered_map<baldr::GraphId, baldr::GraphId>> old_to_new_nodes);
-
-  old_to_new_node find_nodes(sequence<old_to_new_node>& old_to_new, const GraphId& node);
-  DirectedEdge make_network_connection_edge(GraphId start_node, GraphId end_node, GraphTileBuilder* tile_builder);
-  bool OpposingEdgeInfoMatches(const graph_tile_ptr& tile, const DirectedEdge* edge);
-
 
   /**
    * Iterates through tiles and reads nodes and edges
@@ -140,8 +92,6 @@ private:
   DirectedEdge& copy_edge(const DirectedEdge* directededge, GraphId& edgeid, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, GraphId& nodeid);
   NodeInfo& copy_node(GraphId& nodeid, const NodeInfo* nodeinfo, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, uint32_t edge_count, uint32_t edge_index);
 };
-
-
 
 
 
