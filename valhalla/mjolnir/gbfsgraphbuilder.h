@@ -138,7 +138,7 @@ private:
   void iterate_to_update(E edge_callback, N node_callback);
 
   DirectedEdge& copy_edge(const DirectedEdge* directededge, GraphId& edgeid, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, GraphId& nodeid);
-  GraphId copy_node(GraphId& nodeid, const NodeInfo* nodeinfo, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, uint32_t edge_count, uint32_t edge_index);
+  NodeInfo& copy_node(GraphId& nodeid, const NodeInfo* nodeinfo, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, uint32_t edge_count, uint32_t edge_index);
 };
 
 

@@ -704,6 +704,8 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
 
     int total_bicycle = 0;
     int total_pedestrian = 0;
+    int total_transitions = 0;
+
 
     auto local_tiles = reader.GetTileSet(TileHierarchy::levels().back().level);
     for (const auto& tile_id : local_tiles) {
@@ -744,10 +746,12 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
           edge_count++;
         }
 
+        GraphId new_pedestrian_node_id;
         // Add the node to the tilebuilder unless no edges remain
         if (edge_count > 0) {
-          GraphId new_node = copy_node(nodeid, nodeinfo, tile, tilebuilder, edge_count, edge_index);
-          old_to_new_pedestrian[nodeid] = new_node;
+          copy_node(nodeid, nodeinfo, tile, tilebuilder, edge_count, edge_index);
+          new_pedestrian_node_id = GraphId(nodeid.tileid(), nodeid.level(), tilebuilder.nodes().size() - 1);
+          old_to_new_pedestrian[nodeid] = new_pedestrian_node_id;
         }
 
         total_pedestrian += edge_count;
@@ -788,13 +792,23 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
           }
         }
 
+        GraphId new_bicycle_node_id;
+        NodeInfo* new_bicycle_node;
         // Add the node to the tilebuilder unless no edges remain
         if (edge_count > 0) {
-          GraphId new_node = copy_node(nodeid, nodeinfo, tile, tilebuilder, edge_count, edge_index);
-          old_to_new_bicycle[nodeid] = new_node;
+          new_bicycle_node = &copy_node(nodeid, nodeinfo, tile, tilebuilder, edge_count, edge_index);
+          new_bicycle_node_id = GraphId(nodeid.tileid(), nodeid.level(), tilebuilder.nodes().size() - 1);
+          old_to_new_bicycle[nodeid] = new_bicycle_node_id;
         }
 
         total_bicycle += edge_count;
+        
+        if(new_pedestrian_node_id.Is_Valid() && new_bicycle_node_id.Is_Valid()) {
+          new_bicycle_node->set_transition_index(tilebuilder.transitions().size());
+          tilebuilder.transitions().emplace_back(new_pedestrian_node_id, false);
+          new_bicycle_node->set_transition_count(1);
+          total_transitions++;
+        }
       }
 
       // Store the updated tile data (or remove tile if all edges are filtered)
@@ -813,27 +827,32 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
       }
     }
 
-      total_pedestrian = 0;
-  total_bicycle = 0;
-  LOG_INFO("GBFS ----- Validating");
-  iterate_to_read([&](const DirectedEdge& edge) {
-    if((edge.forwardaccess() & kBicycleAccess) == kBicycleAccess || (edge.reverseaccess() & kBicycleAccess) == kBicycleAccess) {
-      total_bicycle++;
-    }
-    if((edge.forwardaccess() & kPedestrianAccess) == kPedestrianAccess || (edge.reverseaccess() & kPedestrianAccess) == kPedestrianAccess) {
-      total_pedestrian++;
-    }
-  }, [](const NodeInfo& node) {
-    
-  });
-
-  
-  LOG_INFO((boost::format("GBFS ----- Pedestrian edges found: %1%") % total_pedestrian).str());
-  LOG_INFO((boost::format("GBFS ----- Bicycle edges found: %1%") % total_bicycle).str());
-
 
     LOG_INFO((boost::format("GBFS ----- Created pedestrian edges: %1%") % total_pedestrian).str());
     LOG_INFO((boost::format("GBFS ----- Created bicycle edges: %1%") % total_bicycle).str());
+    LOG_INFO((boost::format("GBFS ----- Created transitions: %1%") % total_transitions).str());
+
+    total_pedestrian = 0;
+    total_bicycle = 0;
+    total_transitions = 0;
+
+    LOG_INFO("GBFS ----- Validating edge creation");
+    iterate_to_read([&](const DirectedEdge& edge) {
+      if((edge.forwardaccess() & kBicycleAccess) == kBicycleAccess || (edge.reverseaccess() & kBicycleAccess) == kBicycleAccess) {
+        total_bicycle++;
+      }
+      if((edge.forwardaccess() & kPedestrianAccess) == kPedestrianAccess || (edge.reverseaccess() & kPedestrianAccess) == kPedestrianAccess) {
+        total_pedestrian++;
+      }
+    }, [&](const NodeInfo& node) {
+      total_transitions += node.transition_count();
+    });
+
+    LOG_INFO((boost::format("GBFS ----- Pedestrian edges found: %1%") % total_pedestrian).str());
+    LOG_INFO((boost::format("GBFS ----- Bicycle edges found: %1%") % total_bicycle).str());
+    LOG_INFO((boost::format("GBFS ----- Transitions found: %1%") % total_transitions).str());
+
+    LOG_INFO("GBFS ----- Update end nodes of new directed edges");
 
     
     int total = 0;
@@ -1065,7 +1084,7 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
     return tilebuilder.directededges().back();
   }
 
-  GraphId gbfs_graph_builder::copy_node(GraphId& nodeid, const NodeInfo* nodeinfo, graph_tile_ptr& tile, 
+  NodeInfo& gbfs_graph_builder::copy_node(GraphId& nodeid, const NodeInfo* nodeinfo, graph_tile_ptr& tile, 
                                           GraphTileBuilder& tilebuilder, uint32_t edge_count, uint32_t edge_index) {
     // Add a node builder to the tile. Update the edge count and edgeindex
     GraphId new_node(nodeid.tileid(), nodeid.level(), tilebuilder.nodes().size());
@@ -1073,6 +1092,8 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
     NodeInfo& node = tilebuilder.nodes().back();
     node.set_edge_count(edge_count);
     node.set_edge_index(edge_index);
+    node.set_transition_count(0);
+    node.set_transition_index(0);
     const auto& admin = tile->admininfo(nodeinfo->admin_index());
     node.set_admin_index(tilebuilder.AddAdmin(admin.country_text(), admin.state_text(),
                                               admin.country_iso(), admin.state_iso()));
@@ -1086,7 +1107,7 @@ bool gbfs_graph_builder::OpposingEdgeInfoMatches(const graph_tile_ptr& tile, con
       node.set_named_intersection(true);
       tilebuilder.AddSigns(tilebuilder.nodes().size() - 1, signs);
     }
-    return new_node;
+    return tilebuilder.nodes().back();
   }
 
 
