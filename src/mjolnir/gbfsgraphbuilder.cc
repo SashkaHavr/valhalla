@@ -85,10 +85,11 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
   gbfs_operator_getter operator_getter(config);
   auto operators = operator_getter.operators();
   for(gbfs_operator* o : operators) {
-    LOG_INFO("Opearator: " + o->system_information().operator_name());
-    for(station_information s : o->station_information().stations()) {
-      LOG_INFO((boost::format("Station: id: %1%, name: %2%, lat: %3%, lng: %4%") % s.id % s.name % s.location.lat() % s.location.lng()).str());
-    }
+    add_station_network(o);
+    // LOG_INFO("Opearator: " + o->system_information().operator_name());
+    // for(station_information s : o->station_information().stations()) {
+    //   LOG_INFO((boost::format("Station: id: %1%, name: %2%, lat: %3%, lng: %4%") % s.id % s.name % s.location.lat() % s.location.lng()).str());
+    // }
   }
 
 
@@ -426,6 +427,74 @@ NodeInfo& gbfs_graph_builder::copy_node(const GraphId& nodeid, const NodeInfo* n
     tilebuilder.AddSigns(tilebuilder.nodes().size() - 1, signs);
   }
   return tilebuilder.nodes().back();
+}
+
+void gbfs_graph_builder::add_station_network(gbfs_operator* gbfs_op) {
+  const auto& stations = gbfs_op->station_information().stations();
+  if(stations.size() == 0) {
+    LOG_INFO("GBFS ----- There aren't any stations in " + gbfs_op->system_information().operator_name());
+  }
+  else {
+    LOG_INFO((boost::format("GBFS ----- Creating station network for %1% with %2% stations") % gbfs_op->system_information().operator_name() % stations.size()).str());
+  }
+
+  GraphReader reader(config.get_child("mjolnir"));
+  auto local_tiles = reader.GetTileSet();
+  int nodes_found = 0;
+  for(const station_information& station : stations) {
+    GraphId tile_id = TileHierarchy::GetGraphId(station.location, TileHierarchy::levels().back().level);
+
+    // for (const auto& tile_id_2 : local_tiles) {
+    //   LOG_INFO((boost::format("GBFS ----- Tiles: %1%, %2%") % tile_id % tile_id_2).str());
+    //   LOG_INFO((boost::format("GBFS ----- LL: (%1%, %2%), (%3%, %4%)") % station.location.lat() % station.location.lng() % reader.GetGraphTile(tile_id_2)->header()->base_ll().lat() % reader.GetGraphTile(tile_id_2)->header()->base_ll().lng()).str());
+    //   if(tile_id == tile_id_2) {
+    //     LOG_INFO("Tile found");
+    //   }
+    // }
+
+    graph_tile_ptr tile = reader.GetGraphTile(tile_id);
+    assert(tile);
+    int nodes_for_station = 0;
+    for (uint32_t i = 0; i < tile->header()->nodecount(); ++i) {
+      const NodeInfo* nodeinfo = tile->node(i);
+      PointLL nodell = nodeinfo->latlng(tile->header()->base_ll());
+      if(nodell.ApproximatelyEqual(station.location, 0.001)) {
+        nodes_found++;
+        nodes_for_station++;
+      }
+    }
+    if(nodes_for_station == 0) {
+      LOG_ERROR("No nodes for this station found");
+    }
+
+  }
+
+  LOG_INFO((boost::format("GBFS ----- Nodes for stations found: %1%") % nodes_found).str());
+
+
+  // int count = 0;
+  // auto local_tiles = reader.GetTileSet();
+  // for (const auto& tile_id : local_tiles) {
+  //   // Get the graph tile. Skip if no tile exists (should not happen!?)
+  //   graph_tile_ptr tile = reader.GetGraphTile(tile_id);
+  //   assert(tile);
+
+  //   for (uint32_t i = 0; i < tile->header()->nodecount(); ++i) {
+  //     const NodeInfo* nodeinfo = tile->node(i);
+
+
+  //     nodeinfo->latlng(tile->header()->base_ll());
+
+
+  //     uint32_t idx = nodeinfo->edge_index();
+  //     for (uint32_t j = 0; j < nodeinfo->edge_count(); ++j, ++idx) {
+  //       const DirectedEdge* edge = tile->directededge(idx);
+  //       edge_callback(*edge);
+  //       count++;
+  //     }
+  //     node_callback(*nodeinfo);
+  //   }
+  // }
 }
 
 

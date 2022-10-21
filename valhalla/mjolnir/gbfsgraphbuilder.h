@@ -1,8 +1,6 @@
 #include <vector>
 #include <string>
 
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/split.hpp>
 #include <boost/property_tree/ptree.hpp>
 
 #include "valhalla/midgard/logging.h"
@@ -73,6 +71,8 @@ private:
 
   DirectedEdge& copy_edge(const DirectedEdge* directededge, const GraphId& edgeid, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, const GraphId& nodeid);
   NodeInfo& copy_node(const GraphId& nodeid, const NodeInfo* nodeinfo, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, uint32_t edge_count, uint32_t edge_index);
+
+  void add_station_network(gbfs_operator* gbfs_op);
 };
 
 
