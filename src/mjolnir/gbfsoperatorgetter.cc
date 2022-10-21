@@ -68,7 +68,7 @@ const std::vector<station_information>& gbfs_station_information::stations() {
   }
   auto json_stations = data()["stations"].GetArray();
   for(const auto& json_station : json_stations) {
-    stations_.push_back({json_station["station_id"].GetString(), json_station["name"].GetString(), {json_station["lat"].GetDouble(), json_station["lon"].GetDouble()}});
+    stations_.push_back({json_station["station_id"].GetString(), json_station["name"].GetString(), {json_station["lon"].GetDouble(), json_station["lat"].GetDouble()}});
   }
   return stations_;
 }
