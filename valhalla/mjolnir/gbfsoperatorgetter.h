@@ -43,12 +43,12 @@ struct gbfs_base {
     return ((time_now - time_created) / 1s) > ttl;
   }
 
+protected:
+  rapidjson::Document document;
+  
   rapidjson::Value& data() {
     return document["data"];
   }
-
-protected:
-  rapidjson::Document document;
 private:
   std::chrono::time_point<std::chrono::steady_clock> time_created;
   unsigned int ttl = 0;
