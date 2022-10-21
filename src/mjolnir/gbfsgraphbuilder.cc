@@ -145,7 +145,8 @@ void gbfs_graph_builder::construct_full_graph(std::unordered_map<baldr::GraphId,
       GraphId new_pedestrian_node_id;
       // Add the node to the tilebuilder unless no edges remain
       if (edge_count > 0) {
-        copy_node(nodeid, nodeinfo, tile, tilebuilder, edge_count, edge_index);
+        auto& new_pedestrian_node = copy_node(nodeid, nodeinfo, tile, tilebuilder, edge_count, edge_index);
+        new_pedestrian_node.set_access(kPedestrian);
         new_pedestrian_node_id = GraphId(nodeid.tileid(), nodeid.level(), tilebuilder.nodes().size() - 1);
         old_to_new_pedestrian[nodeid] = new_pedestrian_node_id;
       }
@@ -186,6 +187,7 @@ void gbfs_graph_builder::construct_full_graph(std::unordered_map<baldr::GraphId,
       // Add the node to the tilebuilder unless no edges remain
       if (edge_count > 0) {
         new_bicycle_node = &copy_node(nodeid, nodeinfo, tile, tilebuilder, edge_count, edge_index);
+        new_bicycle_node->set_access(kBicycleAccess);
         new_bicycle_node_id = GraphId(nodeid.tileid(), nodeid.level(), tilebuilder.nodes().size() - 1);
         old_to_new_bicycle[nodeid] = new_bicycle_node_id;
       }
