@@ -86,6 +86,9 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
   auto operators = operator_getter.operators();
   for(gbfs_operator* o : operators) {
     LOG_INFO("Opearator: " + o->system_information().operator_name());
+    for(station_information s : o->station_information().stations()) {
+      LOG_INFO((boost::format("Station: id: %1%, name: %2%, lat: %3%, lng: %4%") % s.id % s.name % s.location.lat() % s.location.lng()).str());
+    }
   }
 
 

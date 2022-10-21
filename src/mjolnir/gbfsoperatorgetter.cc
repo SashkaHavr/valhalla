@@ -32,6 +32,13 @@ std::string gbfs_operator::fetch_json(std::string url) {
   return std::string(response.begin(), response.end());
 }
 
+gbfs_urls& gbfs_operator::urls() {
+  if(urls_.is_outdated()) {
+    urls_ = gbfs_urls(fetch_json(url));
+  }
+  return urls_;
+}
+
 gbfs_system_information& gbfs_operator::system_information() {
   if(system_information_.is_outdated()) {
     system_information_ = gbfs_system_information(fetch_json(urls().system_information_url()));
@@ -39,11 +46,11 @@ gbfs_system_information& gbfs_operator::system_information() {
   return system_information_;
 }
 
-gbfs_urls& gbfs_operator::urls() {
-  if(urls_.is_outdated()) {
-    urls_ = gbfs_urls(fetch_json(url));
+gbfs_station_information& gbfs_operator::station_information() {
+  if(station_information_.is_outdated()) {
+    station_information_ = gbfs_station_information(fetch_json(urls().station_information_url()));
   }
-  return urls_;
+  return station_information_;
 }
 
 std::string gbfs_urls::get_url(std::string key) {
@@ -53,6 +60,17 @@ std::string gbfs_urls::get_url(std::string key) {
     throw new std::exception();
   }
   return (*res)["url"].GetString();
+}
+
+const std::vector<station_information>& gbfs_station_information::stations() {
+  if(stations_.size() > 0) {
+    return stations_;
+  }
+  auto json_stations = data()["stations"].GetArray();
+  for(const auto& json_station : json_stations) {
+    stations_.push_back({json_station["station_id"].GetString(), json_station["name"].GetString(), {json_station["lat"].GetDouble(), json_station["lon"].GetDouble()}});
+  }
+  return stations_;
 }
 
 

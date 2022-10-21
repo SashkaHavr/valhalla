@@ -8,6 +8,7 @@
 
 #include "valhalla/midgard/logging.h"
 #include "valhalla/baldr/curler.h"
+#include "valhalla/midgard/pointll.h"
 
 using namespace valhalla::midgard;
 using namespace valhalla::baldr;
@@ -23,9 +24,6 @@ namespace gbfs {
 
 
 struct gbfs_base {
-  std::chrono::time_point<std::chrono::steady_clock> time_created;
-  unsigned int ttl = 0;
-
   gbfs_base() {
 
   }
@@ -41,6 +39,7 @@ struct gbfs_base {
       return true;
     }
     auto time_now = std::chrono::steady_clock::now();
+    // LOG_INFO((boost::format("GBFS ----- Time since creation: %1%, TTL: %2%") % ((time_now - time_created) / 1s) % ttl).str());
     return ((time_now - time_created) / 1s) > ttl;
   }
 
@@ -50,6 +49,9 @@ struct gbfs_base {
 
 protected:
   rapidjson::Document document;
+private:
+  std::chrono::time_point<std::chrono::steady_clock> time_created;
+  unsigned int ttl = 0;
 };
 
 
@@ -58,6 +60,18 @@ struct gbfs_urls : gbfs_base {
   
   std::string system_information_url() {
     return get_url("system_information");
+  }
+
+  std::string station_information_url() {
+    return get_url("station_information");
+  }
+
+  std::string station_status_url() {
+    return get_url("station_status");
+  }
+
+  std::string free_bike_status_url() {
+    return get_url("free_bike_status");
   }
 
 private:
@@ -72,7 +86,19 @@ struct gbfs_system_information : gbfs_base {
   }
 };
 
+struct station_information {
+  std::string id;
+  std::string name;
+  PointLL location;
+};
 
+struct gbfs_station_information : gbfs_base {
+  using gbfs_base::gbfs_base;
+
+  const std::vector<station_information>&  stations();
+private:
+  std::vector<station_information> stations_;
+};
 
 struct gbfs_operator {
 
@@ -84,11 +110,13 @@ struct gbfs_operator {
   // Getters
   gbfs_urls& urls();
   gbfs_system_information& system_information();
+  gbfs_station_information& station_information();
 
 private:
   // Data fields
   gbfs_system_information system_information_;
   gbfs_urls urls_;
+  gbfs_station_information station_information_;
 
   // Network
   std::string url;
