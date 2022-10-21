@@ -1,12 +1,17 @@
 #include <vector>
 #include <string>
+#include <chrono>
+
 #include <boost/property_tree/ptree.hpp>
+#include <boost/format.hpp>
 #include "rapidjson/document.h"
+
 #include "valhalla/midgard/logging.h"
 #include "valhalla/baldr/curler.h"
 
 using namespace valhalla::midgard;
 using namespace valhalla::baldr;
+using namespace std::literals;
 
 namespace valhalla {
 namespace mjolnir {
@@ -18,23 +23,33 @@ namespace gbfs {
 
 
 struct gbfs_base {
-  time_t time_stamp;
+  std::chrono::time_point<std::chrono::steady_clock> time_created;
+  unsigned int ttl = 0;
 
   gbfs_base() {
 
   }
 
   gbfs_base(std::string json) {
-    time_stamp = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    data.Parse(json.c_str());
+    time_created = std::chrono::steady_clock::now();
+    document.Parse(json.c_str());
+    ttl = document["ttl"].GetUint();
   }
 
   bool is_outdated() {
-    return true;
+    if(ttl == 0) {
+      return true;
+    }
+    auto time_now = std::chrono::steady_clock::now();
+    return ((time_now - time_created) / 1s) > ttl;
+  }
+
+  rapidjson::Value& data() {
+    return document["data"];
   }
 
 protected:
-  rapidjson::Document data;
+  rapidjson::Document document;
 };
 
 
@@ -42,20 +57,18 @@ struct gbfs_urls : gbfs_base {
   using gbfs_base::gbfs_base;
   
   std::string system_information_url() {
-    auto urls = data["data"]["en"]["feeds"].GetArray();
-    auto res = std::find_if(urls.begin(), urls.end(), [](rapidjson::Value& val){return std::string(val["name"].GetString()) == "system_information";});
-    if(res == urls.end()) {
-      throw new std::exception();
-    }
-    return (*res)["url"].GetString();
+    return get_url("system_information");
   }
+
+private:
+  std::string get_url(std::string key);
 };
 
 struct gbfs_system_information : gbfs_base {
   using gbfs_base::gbfs_base;
 
   std::string operator_name() {
-    return data["data"]["name"].GetString();
+    return data()["name"].GetString();
   }
 };
 

@@ -46,6 +46,15 @@ gbfs_urls& gbfs_operator::urls() {
   return urls_;
 }
 
+std::string gbfs_urls::get_url(std::string key) {
+  auto urls = data()["en"]["feeds"].GetArray();
+  auto res = std::find_if(urls.begin(), urls.end(), [&key](rapidjson::Value& val){return std::string(val["name"].GetString()) == key;});
+  if(res == urls.end()) {
+    throw new std::exception();
+  }
+  return (*res)["url"].GetString();
+}
+
 
 } //namespace valhalla
 } //namespace mjolnir
