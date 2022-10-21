@@ -15,6 +15,7 @@
 #include "valhalla/baldr/edgeinfo.h"
 #include "valhalla/mjolnir/util.h"
 #include "valhalla/mjolnir/graphtilebuilder.h"
+#include "valhalla/mjolnir/gbfsoperatorgetter.h"
 
 using namespace valhalla::midgard;
 using namespace valhalla::baldr;
@@ -22,11 +23,6 @@ using namespace valhalla::baldr;
 namespace valhalla {
 namespace mjolnir {
 namespace gbfs {
-
-
-struct gbfs_urls {
-  
-};
 
 struct bicycle_edge {
   GraphId edge_id;
@@ -54,8 +50,6 @@ struct gbfs_graph_builder {
   bool build(bool parse_osm_first);
 
 private:
-  void fetch_gbfs_data();
-
   /**
    * Construct bike and foot networks and connect them
   */

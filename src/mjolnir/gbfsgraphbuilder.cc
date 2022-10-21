@@ -15,7 +15,7 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
     LOG_INFO("GBFS ----- Skipped first standard building stages");
   }
 
-
+  if(false) {
   LOG_INFO("GBFS ----- Dividing pedestrian and bicycle edges");
   std::unordered_map<baldr::GraphId, std::vector<bicycle_edge>> bicycle_edges;
   int bicycle_edges_count = 0;
@@ -76,9 +76,22 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
 
   LOG_INFO((boost::format("GBFS ----- Pedestrian edges found: %1%") % total_pedestrian).str());
   LOG_INFO((boost::format("GBFS ----- Bicycle edges found: %1%") % total_bicycle).str());
+  }
 
-  LOG_INFO("GBFS ----- Last standard building stages: start - Elevation, end - Cleanup");
-  build_tile_set(config, input_files, valhalla::mjolnir::BuildStage::kElevation, valhalla::mjolnir::BuildStage::kCleanup);
+
+  LOG_INFO("GBFS ----- Fetching operators");
+
+  // fetch_gbfs_data();
+  gbfs_operator_getter operator_getter(config);
+  auto operators = operator_getter.operators();
+  for(gbfs_operator* o : operators) {
+    LOG_INFO("Opearator: " + o->system_information().operator_name());
+  }
+
+
+
+  // LOG_INFO("GBFS ----- Last standard building stages: start - Elevation, end - Cleanup");
+  // build_tile_set(config, input_files, valhalla::mjolnir::BuildStage::kElevation, valhalla::mjolnir::BuildStage::kCleanup);
 
   return true;
 }

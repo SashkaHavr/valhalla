@@ -57,6 +57,9 @@ config = {
             'scan_tar': False,
         },
         'logging': {'type': 'std_out', 'color': True, 'file_name': 'path_to_some_file.log'},
+        'gbfs': {
+            'operators_base_urls': []
+        }
     },
     'additional_data': {'elevation': '/data/valhalla/elevation/', 'elevation_url': Optional(str)},
     'loki': {
