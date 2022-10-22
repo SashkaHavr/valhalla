@@ -30,6 +30,18 @@ struct bicycle_edge {
     : edge_id(edge_id), access_count(access_count) {}
 };
 
+struct station_inbound_edge {
+  GraphId start_node;
+  GraphId end_node;
+  GraphId closest_edge;
+  std::tuple<PointLL, double, int> best_projection;
+  
+  station_inbound_edge(GraphId start_node, GraphId end_node, GraphId closest_edge, std::tuple<PointLL, double, int> best_projection)
+    : start_node(start_node), end_node(end_node), closest_edge(closest_edge), best_projection(best_projection) {
+
+  }
+};
+
 struct gbfs_graph_builder {
   boost::property_tree::ptree& config;
   const std::vector<std::string>& input_files;
@@ -73,6 +85,9 @@ private:
   NodeInfo& copy_node(const GraphId& nodeid, const NodeInfo* nodeinfo, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, uint32_t edge_count, uint32_t edge_index);
 
   void add_station_network(gbfs_operator* gbfs_op);
+  NodeInfo& create_station_node(GraphTileBuilder& tilebuilder, graph_tile_ptr& tile, const station_information& station, int stations_count);
+  DirectedEdge& create_station_edge(GraphTileBuilder& tilebuilder, graph_tile_ptr& tile, const DirectedEdge* closest_edge, GraphId station_node, GraphId end_node, std::vector<PointLL> shape);
+  std::pair<std::vector<PointLL>, std::vector<PointLL>> create_shapes_to_edge_nodes(PointLL start_location, std::tuple<PointLL, double, int> best_projection, std::vector<PointLL> shape);
 };
 
 
