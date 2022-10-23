@@ -35,9 +35,11 @@ struct station_inbound_edge {
   GraphId end_node;
   GraphId closest_edge;
   std::tuple<PointLL, double, int> best_projection;
+  uint32_t access;
+  station_information station;
   
-  station_inbound_edge(GraphId start_node, GraphId end_node, GraphId closest_edge, std::tuple<PointLL, double, int> best_projection)
-    : start_node(start_node), end_node(end_node), closest_edge(closest_edge), best_projection(best_projection) {
+  station_inbound_edge(GraphId start_node, GraphId end_node, GraphId closest_edge, std::tuple<PointLL, double, int> best_projection, uint32_t access, const station_information& station)
+    : start_node(start_node), end_node(end_node), closest_edge(closest_edge), best_projection(best_projection), access(access), station(station) {
 
   }
 };
@@ -63,7 +65,7 @@ private:
   /**
    * Construct bike and foot networks and connect them
   */
-  void construct_full_graph(std::unordered_map<baldr::GraphId, std::vector<bicycle_edge>>& nodes_to_bicycle_edges);
+  void construct_full_graph(std::unordered_map<baldr::GraphId, std::vector<bicycle_edge>>& nodes_to_bicycle_edges, std::unordered_map<GraphId, std::vector<station_inbound_edge>> inbound_edges);
 
   /**
    * Iterates through tiles and reads nodes and edges
@@ -84,10 +86,13 @@ private:
   DirectedEdge& copy_edge(const DirectedEdge* directededge, const GraphId& edgeid, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, const GraphId& nodeid);
   NodeInfo& copy_node(const GraphId& nodeid, const NodeInfo* nodeinfo, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, uint32_t edge_count, uint32_t edge_index);
 
-  void add_station_network(gbfs_operator* gbfs_op);
-  NodeInfo& create_station_node(GraphTileBuilder& tilebuilder, graph_tile_ptr& tile, const station_information& station, int stations_count);
-  DirectedEdge& create_station_edge(GraphTileBuilder& tilebuilder, graph_tile_ptr& tile, const DirectedEdge* closest_edge, GraphId station_node, GraphId end_node, std::vector<PointLL> shape);
+  void add_station_network(gbfs_operator* gbfs_op, std::unordered_map<GraphId, std::vector<station_inbound_edge>>& inbound_edges);
+  NodeInfo& create_station_node(GraphTileBuilder& tilebuilder, graph_tile_ptr& tile, const station_information& station);
+  DirectedEdge& create_station_edge(GraphTileBuilder& tilebuilder, graph_tile_ptr& tile, const DirectedEdge* closest_edge, GraphId start_node, GraphId end_node, std::vector<PointLL> shape, uint32_t access);
   std::pair<std::vector<PointLL>, std::vector<PointLL>> create_shapes_to_edge_nodes(PointLL start_location, std::tuple<PointLL, double, int> best_projection, std::vector<PointLL> shape);
+  DirectedEdge& create_inbound_station_edge(GraphReader& reader, GraphTileBuilder& tilebuilder, station_inbound_edge inbound_edge);
+
+  inline bool is_access_equal(const DirectedEdge* edge, uint32_t access);
 };
 
 

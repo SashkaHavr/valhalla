@@ -16,7 +16,21 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
     LOG_INFO("GBFS ----- Skipped first standard building stages");
   }
 
-  if(false) {
+  LOG_INFO("GBFS ----- Fetching operators");
+  std::unordered_map<GraphId, std::vector<station_inbound_edge>> inbound_edges;
+  gbfs_operator_getter operator_getter(config);
+  int nodes_total = 0;
+  iterate_to_update([&](DirectedEdge& edge, GraphId& edge_id, GraphId& node_id) {}, [&](NodeInfo& node) { nodes_total++;});
+  LOG_INFO((boost::format("GBFS ----- Nodes total before: %1%") % nodes_total).str());
+  auto operators = operator_getter.operators();
+  for(gbfs_operator* o : operators) {
+    add_station_network(o, inbound_edges);
+  }
+  nodes_total = 0;
+  iterate_to_update([&](DirectedEdge& edge, GraphId& edge_id, GraphId& node_id) {}, [&](NodeInfo& node) { nodes_total++;});
+  LOG_INFO((boost::format("GBFS ----- Nodes total after: %1%") % nodes_total).str());
+
+
   LOG_INFO("GBFS ----- Dividing pedestrian and bicycle edges");
   std::unordered_map<baldr::GraphId, std::vector<bicycle_edge>> bicycle_edges;
   int bicycle_edges_count = 0;
@@ -59,7 +73,7 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
   LOG_INFO((boost::format("GBFS ----- Bicycle edges found: %1%") % bicycle_edges_count).str());
 
   LOG_INFO("GBFS ----- Constructing a full graph");
-  construct_full_graph(bicycle_edges);
+  construct_full_graph(bicycle_edges, inbound_edges);
 
   LOG_INFO("GBFS ----- Validating");
   int total_pedestrian = 0;
@@ -77,26 +91,26 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
 
   LOG_INFO((boost::format("GBFS ----- Pedestrian edges found: %1%") % total_pedestrian).str());
   LOG_INFO((boost::format("GBFS ----- Bicycle edges found: %1%") % total_bicycle).str());
-  }
+  
 
 
-  LOG_INFO("GBFS ----- Fetching operators");
+  // LOG_INFO("GBFS ----- Fetching operators");
 
   // fetch_gbfs_data();
-  gbfs_operator_getter operator_getter(config);
-  auto operators = operator_getter.operators();
-  for(gbfs_operator* o : operators) {
-    add_station_network(o);
-    // LOG_INFO("Opearator: " + o->system_information().operator_name());
-    // for(station_information s : o->station_information().stations()) {
-    //   LOG_INFO((boost::format("Station: id: %1%, name: %2%, lat: %3%, lng: %4%") % s.id % s.name % s.location.lat() % s.location.lng()).str());
-    // }
-  }
+  // gbfs_operator_getter operator_getter(config);
+  // auto operators = operator_getter.operators();
+  // for(gbfs_operator* o : operators) {
+  //   add_station_network(o);
+  //   // LOG_INFO("Opearator: " + o->system_information().operator_name());
+  //   // for(station_information s : o->station_information().stations()) {
+  //   //   LOG_INFO((boost::format("Station: id: %1%, name: %2%, lat: %3%, lng: %4%") % s.id % s.name % s.location.lat() % s.location.lng()).str());
+  //   // }
+  // }
 
 
 
-  // LOG_INFO("GBFS ----- Last standard building stages: start - Elevation, end - Cleanup");
-  // build_tile_set(config, input_files, valhalla::mjolnir::BuildStage::kElevation, valhalla::mjolnir::BuildStage::kCleanup);
+  LOG_INFO("GBFS ----- Last standard building stages: start - Elevation, end - Cleanup");
+  build_tile_set(config, input_files, valhalla::mjolnir::BuildStage::kElevation, valhalla::mjolnir::BuildStage::kCleanup);
 
   return true;
 }
@@ -104,7 +118,7 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
 
 // Build foot + bike networks
 
-void gbfs_graph_builder::construct_full_graph(std::unordered_map<baldr::GraphId, std::vector<bicycle_edge>>& nodes_to_bicycle_edges) {
+void gbfs_graph_builder::construct_full_graph(std::unordered_map<baldr::GraphId, std::vector<bicycle_edge>>& nodes_to_bicycle_edges, std::unordered_map<GraphId, std::vector<station_inbound_edge>> inbound_edges) {
   std::unordered_map<baldr::GraphId, baldr::GraphId> old_to_new_pedestrian;
   std::unordered_map<baldr::GraphId, baldr::GraphId> old_to_new_bicycle;
   GraphReader reader(config.get_child("mjolnir"));
@@ -121,7 +135,8 @@ void gbfs_graph_builder::construct_full_graph(std::unordered_map<baldr::GraphId,
     // Get the graph tile. Read from this tile to create the new tile.
     graph_tile_ptr tile = reader.GetGraphTile(tile_id);
     assert(tile);
-    
+    std::vector<station_inbound_edge> tile_inbound_edges = inbound_edges[tile_id];
+
     GraphId nodeid(tile_id.tileid(), tile_id.level(), 0);
     for (uint32_t i = 0; i < tile->header()->nodecount(); ++i, ++nodeid) {
       // Count of edges added for this node
@@ -141,6 +156,16 @@ void gbfs_graph_builder::construct_full_graph(std::unordered_map<baldr::GraphId,
 
         copy_edge(directededge, edgeid, tile, tilebuilder, nodeid);
         edge_count++;
+      }
+
+
+      std::vector<station_inbound_edge> node_inbound_edges;
+      std::copy_if(tile_inbound_edges.begin(), tile_inbound_edges.end(), std::back_inserter(node_inbound_edges), [&](station_inbound_edge ie) { return ie.start_node == nodeid; });
+      for(const auto& inbound_edge : node_inbound_edges) {
+        if(inbound_edge.access == kPedestrianAccess) {
+          create_inbound_station_edge(reader, tilebuilder, inbound_edge);
+          edge_count++;
+        }
       }
 
       GraphId new_pedestrian_node_id;
@@ -180,6 +205,13 @@ void gbfs_graph_builder::construct_full_graph(std::unordered_map<baldr::GraphId,
             LOG_ERROR("GBFS ----- unsupported access count");
             throw new std::exception();
             break;
+        }
+      }
+
+      for(const auto& inbound_edge : node_inbound_edges) {
+        if(inbound_edge.access == kBicycleAccess) {
+          create_inbound_station_edge(reader, tilebuilder, inbound_edge);
+          edge_count++;
         }
       }
 
@@ -432,7 +464,7 @@ NodeInfo& gbfs_graph_builder::copy_node(const GraphId& nodeid, const NodeInfo* n
   return tilebuilder.nodes().back();
 }
 
-void gbfs_graph_builder::add_station_network(gbfs_operator* gbfs_op) {
+void gbfs_graph_builder::add_station_network(gbfs_operator* gbfs_op, std::unordered_map<GraphId, std::vector<station_inbound_edge>>& inbound_edges) {
   const auto& stations = gbfs_op->station_information().stations();
   if(stations.size() == 0) {
     LOG_INFO("GBFS ----- There aren't any stations in " + gbfs_op->system_information().operator_name());
@@ -443,23 +475,21 @@ void gbfs_graph_builder::add_station_network(gbfs_operator* gbfs_op) {
 
   GraphReader reader(config.get_child("mjolnir"));
   auto local_tiles = reader.GetTileSet();
-  // std::unordered_map<std::string, std::pair<GraphId, GraphId>> stations_to_projections;
-  std::unordered_map<GraphId, std::vector<station_inbound_edge>> inbound_edges;
   for(const station_information& station : stations) {
     GraphId tile_id = TileHierarchy::GetGraphId(station.location, TileHierarchy::levels().back().level);
     graph_tile_ptr tile = reader.GetGraphTile(tile_id);
     assert(tile);
 
     // Find best projection for station
-    double min_distance = DBL_MAX;
-    std::pair<GraphId, GraphId> best_node_and_edge;
-    std::tuple<PointLL, double, int> best_projection;
+    double min_distance_pedestrian = DBL_MAX;
+    double min_distnace_bicycle = DBL_MAX;
+    std::pair<GraphId, GraphId> best_node_and_edge_pedestrian;
+    std::pair<GraphId, GraphId> best_node_and_edge_bicycle;
+    std::tuple<PointLL, double, int> best_projection_pedestrian;
+    std::tuple<PointLL, double, int> best_projection_bicycle;
     GraphId node_id(tile_id.tileid(), tile_id.level(), 0);
     for (uint32_t i = 0; i < tile->header()->nodecount(); ++i, ++node_id) {
       const NodeInfo* nodeinfo = tile->node(i);
-      if(nodeinfo->edge_count() == 0 || (nodeinfo->access() & kPedestrianAccess) != kPedestrianAccess) {
-        continue;
-      }
       PointLL nodell = nodeinfo->latlng(tile->header()->base_ll());
       if(!nodell.ApproximatelyEqual(station.location, 0.001)) {
         continue;
@@ -472,89 +502,63 @@ void gbfs_graph_builder::add_station_network(gbfs_operator* gbfs_op) {
         auto edge_info = tile->edgeinfo(edge);
         auto projection = station.location.Project(edge_info.shape());
         double distance = std::get<1>(projection);
-        if(distance < min_distance) {
-          min_distance = distance;
-          best_projection = projection;
-          best_node_and_edge = std::pair<GraphId, GraphId>(node_id, edge_id);
+        if(is_access_equal(edge, kPedestrianAccess) && distance < min_distance_pedestrian) {
+          min_distance_pedestrian = distance;
+          best_projection_pedestrian = projection;
+          best_node_and_edge_pedestrian = std::pair<GraphId, GraphId>(node_id, edge_id);
+        }
+        if(is_access_equal(edge, kBicycleAccess) && distance < min_distnace_bicycle) {
+          min_distnace_bicycle = distance;
+          best_projection_bicycle = projection;
+          best_node_and_edge_bicycle = std::pair<GraphId, GraphId>(node_id, edge_id);
         }
       }
     }
-    if(!(best_node_and_edge.first.Is_Valid() && best_node_and_edge.second.Is_Valid())) {
+    if(!(best_node_and_edge_pedestrian.first.Is_Valid() && best_node_and_edge_pedestrian.second.Is_Valid() 
+          && best_node_and_edge_bicycle.first.Is_Valid() && best_node_and_edge_bicycle.second.Is_Valid())) {
       LOG_ERROR((boost::format("GBFS ----- No nodes for this station found. Id: %1%") % station.id).str());
       continue;
     }
-    // else {
-    //   stations_to_projections.insert(station.id, best_projection);
-    // }
 
-    // Create node for station
     GraphTileBuilder tilebuilder(tile_dir, tile_id, true);
 
-    GraphId new_node_id(best_node_and_edge.first.tileid(), best_node_and_edge.first.level(), tilebuilder.nodes().size());
-    create_station_node(tilebuilder, tile, station, stations.size());
+    // Create node for station
+    GraphId new_node_id(tile_id.tileid(), tile_id.level(), tilebuilder.nodes().size());
+    create_station_node(tilebuilder, tile, station);
 
-    const DirectedEdge* edge = tile->directededge(best_node_and_edge.second);
-    EdgeInfo edge_info = tile->edgeinfo(edge);
-    auto shapes = create_shapes_to_edge_nodes(station.location, best_projection, edge_info.shape());
-    create_station_edge(tilebuilder, tile, edge, new_node_id, best_node_and_edge.first, shapes.first);
-    create_station_edge(tilebuilder, tile, edge, new_node_id, edge->endnode(), shapes.second);
+    // Create outbound edges
+    const DirectedEdge* edge_pedestrian = tile->directededge(best_node_and_edge_pedestrian.second);
+    EdgeInfo edge_info_pedestrian = tile->edgeinfo(edge_pedestrian);
+    auto shapes_pedestrian = create_shapes_to_edge_nodes(station.location, best_projection_pedestrian, edge_info_pedestrian.shape());
+    const DirectedEdge* edge_bicycle = tile->directededge(best_node_and_edge_bicycle.second);
+    EdgeInfo edge_info_bicycle = tile->edgeinfo(edge_bicycle);
+    auto shapes_bicycle = create_shapes_to_edge_nodes(station.location, best_projection_bicycle, edge_info_bicycle.shape());
 
-    inbound_edges[tile_id].push_back(station_inbound_edge(best_node_and_edge.first, new_node_id, best_node_and_edge.second, best_projection));
-    inbound_edges[tile_id].push_back(station_inbound_edge(edge->endnode(), new_node_id, best_node_and_edge.second, best_projection));
+    create_station_edge(tilebuilder, tile, edge_pedestrian, new_node_id, best_node_and_edge_pedestrian.first, shapes_pedestrian.first, kPedestrianAccess);
+    create_station_edge(tilebuilder, tile, edge_pedestrian, new_node_id, edge_pedestrian->endnode(), shapes_pedestrian.second, kPedestrianAccess);
+    create_station_edge(tilebuilder, tile, edge_bicycle, new_node_id, best_node_and_edge_bicycle.first, shapes_bicycle.first, kBicycleAccess);
+    create_station_edge(tilebuilder, tile, edge_bicycle, new_node_id, edge_bicycle->endnode(), shapes_bicycle.second, kBicycleAccess);
+    tilebuilder.StoreTileData();
+
+    inbound_edges[tile_id].push_back(station_inbound_edge(best_node_and_edge_pedestrian.first, new_node_id, best_node_and_edge_pedestrian.second, best_projection_pedestrian, kPedestrianAccess, station));
+    inbound_edges[edge_pedestrian->endnode().Tile_Base()].push_back(station_inbound_edge(edge_pedestrian->endnode(), new_node_id, best_node_and_edge_pedestrian.second, best_projection_pedestrian, kPedestrianAccess, station));
+    inbound_edges[tile_id].push_back(station_inbound_edge(best_node_and_edge_bicycle.first, new_node_id, best_node_and_edge_bicycle.second, best_projection_bicycle, kBicycleAccess, station));
+    inbound_edges[edge_bicycle->endnode().Tile_Base()].push_back(station_inbound_edge(edge_bicycle->endnode(), new_node_id, best_node_and_edge_bicycle.second, best_projection_bicycle, kBicycleAccess, station));
   }
-  
-
-
-  // for(const station_information& station : stations) {
-  //   GraphId tile_id = TileHierarchy::GetGraphId(station.location, TileHierarchy::levels().back().level);
-  //   graph_tile_ptr tile = reader.GetGraphTile(tile_id);
-  //   assert(tile);
-
-  //   auto best_projection = stations_to_projections[station.id];
-
-  //   NodeInfo new_node(tile.header()->base_ll(), station.location, (kPedestrianAccess | kBicycleAccess), NodeType::kBikeShare,
-  //                           false, true, false, false);
-  // }
-
-
-
-  // int count = 0;
-  // auto local_tiles = reader.GetTileSet();
-  // for (const auto& tile_id : local_tiles) {
-  //   // Get the graph tile. Skip if no tile exists (should not happen!?)
-  //   graph_tile_ptr tile = reader.GetGraphTile(tile_id);
-  //   assert(tile);
-
-  //   for (uint32_t i = 0; i < tile->header()->nodecount(); ++i) {
-  //     const NodeInfo* nodeinfo = tile->node(i);
-
-
-  //     nodeinfo->latlng(tile->header()->base_ll());
-
-
-  //     uint32_t idx = nodeinfo->edge_index();
-  //     for (uint32_t j = 0; j < nodeinfo->edge_count(); ++j, ++idx) {
-  //       const DirectedEdge* edge = tile->directededge(idx);
-  //       edge_callback(*edge);
-  //       count++;
-  //     }
-  //     node_callback(*nodeinfo);
-  //   }
-  // }
 }
 
-NodeInfo& gbfs_graph_builder::create_station_node(GraphTileBuilder& tilebuilder, graph_tile_ptr& tile, const station_information& station, int stations_count) {
+NodeInfo& gbfs_graph_builder::create_station_node(GraphTileBuilder& tilebuilder, graph_tile_ptr& tile, const station_information& station) {
   NodeInfo new_node(tile->header()->base_ll(), station.location, (kPedestrianAccess | kBicycleAccess), NodeType::kBikeShare,
                           false, true, false, false);
   new_node.set_mode_change(true);
   new_node.set_edge_index(tilebuilder.directededges().size());
-  new_node.set_edge_count(2 + stations_count);
+  new_node.set_edge_count(4);
   tilebuilder.nodes().emplace_back(std::move(new_node));
   return tilebuilder.nodes().back();
 }
 
-DirectedEdge& gbfs_graph_builder::create_station_edge(GraphTileBuilder& tilebuilder, graph_tile_ptr& tile, const DirectedEdge* closest_edge, GraphId station_node,
-                                                      GraphId end_node, std::vector<PointLL> shape) {
+DirectedEdge& gbfs_graph_builder::create_station_edge(GraphTileBuilder& tilebuilder, graph_tile_ptr& tile, const DirectedEdge* closest_edge, GraphId start_node,
+                                                      GraphId end_node, std::vector<PointLL> shape, uint32_t access) {
   DirectedEdge new_directededge;
   new_directededge.set_endnode(end_node);
 
@@ -566,15 +570,16 @@ DirectedEdge& gbfs_graph_builder::create_station_edge(GraphTileBuilder& tilebuil
   new_directededge.set_classification(closest_edge->classification());
   // directededge.set_localedgeidx(tilebuilder.directededges().size()); //????
 
-  new_directededge.set_forwardaccess(kPedestrianAccess);
-  new_directededge.set_reverseaccess(kPedestrianAccess);
+  new_directededge.set_forwardaccess(access);
+  new_directededge.set_reverseaccess(access);
   new_directededge.set_forward(true);
-  new_directededge.set_bss_connection(true);
+  // new_directededge.set_bss_connection(true); //????
+  new_directededge.set_opp_index(0);
 
   bool added = false;
   EdgeInfo edge_info = tile->edgeinfo(closest_edge);
   uint32_t edge_info_offset = tilebuilder.AddEdgeInfo(tilebuilder.directededges().size(),
-                                    station_node, end_node, edge_info.wayid(),
+                                    start_node, end_node, edge_info.wayid(),
                                     edge_info.mean_elevation(), edge_info.bike_network(),
                                     edge_info.speed_limit(), shape, edge_info.GetNames(),
                                     edge_info.GetTaggedValues(), edge_info.GetTaggedValues(true),
@@ -602,6 +607,27 @@ std::pair<std::vector<PointLL>, std::vector<PointLL>> gbfs_graph_builder::create
   std::copy(shape.begin(), shape.begin() + cloest_index + 1, std::back_inserter(shape_end));
 
   return std::pair<std::vector<PointLL>, std::vector<PointLL>>(shape_start, shape_end);
+}
+
+inline bool gbfs_graph_builder::is_access_equal(const DirectedEdge* edge, uint32_t access) {
+  return (edge->forwardaccess() & access) == access || (edge->reverseaccess() & access) == access;
+}
+
+DirectedEdge& gbfs_graph_builder::create_inbound_station_edge(GraphReader& reader, GraphTileBuilder& tilebuilder, station_inbound_edge inbound_edge) {
+  graph_tile_ptr tile = reader.GetGraphTile(inbound_edge.closest_edge.Tile_Base());
+  const DirectedEdge* edge = tile->directededge(inbound_edge.closest_edge);
+  EdgeInfo edge_info = tile->edgeinfo(edge);
+  
+  auto shapes = create_shapes_to_edge_nodes(inbound_edge.station.location, inbound_edge.best_projection, edge_info.shape());
+  std::vector<PointLL> shape;
+  if(edge->endnode() == inbound_edge.start_node) {
+    shape = shapes.second;
+  }
+  else {
+    shape = shapes.first;
+  }
+  std::reverse(shape.begin(), shape.end());
+  return create_station_edge(tilebuilder, tile, edge, inbound_edge.start_node, inbound_edge.end_node, shape, inbound_edge.access);
 }
 
 
