@@ -16,6 +16,7 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
     LOG_INFO("GBFS ----- Skipped first standard building stages");
   }
 
+  if(false){
   LOG_INFO("GBFS ----- Fetching operators");
   std::unordered_map<GraphId, std::vector<station_inbound_edge>> inbound_edges;
   gbfs_operator_getter operator_getter(config);
@@ -91,27 +92,21 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
 
   LOG_INFO((boost::format("GBFS ----- Pedestrian edges found: %1%") % total_pedestrian).str());
   LOG_INFO((boost::format("GBFS ----- Bicycle edges found: %1%") % total_bicycle).str());
-  
-
-
-  // LOG_INFO("GBFS ----- Fetching operators");
-
-  // fetch_gbfs_data();
-  // gbfs_operator_getter operator_getter(config);
-  // auto operators = operator_getter.operators();
-  // for(gbfs_operator* o : operators) {
-  //   add_station_network(o);
-  //   // LOG_INFO("Opearator: " + o->system_information().operator_name());
-  //   // for(station_information s : o->station_information().stations()) {
-  //   //   LOG_INFO((boost::format("Station: id: %1%, name: %2%, lat: %3%, lng: %4%") % s.id % s.name % s.location.lat() % s.location.lng()).str());
-  //   // }
-  // }
-
-
 
   LOG_INFO("GBFS ----- Last standard building stages: start - Elevation, end - Cleanup");
   build_tile_set(config, input_files, valhalla::mjolnir::BuildStage::kElevation, valhalla::mjolnir::BuildStage::kCleanup);
+  }
 
+  LOG_INFO("GBFS ----- Fetching operators");
+
+  gbfs_operator_getter operator_getter(config);
+  auto operators = operator_getter.operators();
+  for(gbfs_operator* o : operators) {
+    LOG_INFO("Opearator: " + o->system_information().operator_name());
+    for(free_bike s : o->free_bike_status().dockless_bikes()) {
+      LOG_INFO((boost::format("Free bike: id: %1%, lat: %2%, lng: %3%, station: %4%") % s.id % s.location.lat() % s.location.lng() % s.station_id).str());
+    }
+  }
   return true;
 }
 

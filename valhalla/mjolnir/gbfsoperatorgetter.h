@@ -1,6 +1,7 @@
 #include <vector>
 #include <string>
 #include <chrono>
+#include <algorithm>
 
 #include <boost/property_tree/ptree.hpp>
 #include <boost/format.hpp>
@@ -18,10 +19,7 @@ namespace valhalla {
 namespace mjolnir {
 namespace gbfs {
 
-// const rapidjson::Document empty_document;
-// void gbfs_graph_builder::fetch_gbfs_data();
-
-
+const std::string kGBFSInvalidId = "";
 
 struct gbfs_base {
   gbfs_base() {
@@ -87,7 +85,7 @@ struct gbfs_system_information : gbfs_base {
 };
 
 struct station_information {
-  std::string id;
+  std::string id = kGBFSInvalidId;
   std::string name;
   PointLL location;
 };
@@ -98,6 +96,22 @@ struct gbfs_station_information : gbfs_base {
   const std::vector<station_information>&  stations();
 private:
   std::vector<station_information> stations_;
+};
+
+struct free_bike  {
+  std::string id = kGBFSInvalidId;
+  PointLL location;
+  std::string station_id = kGBFSInvalidId;
+};
+
+struct gbfs_free_bike_status : gbfs_base {
+  using gbfs_base::gbfs_base;
+
+  const std::vector<free_bike>& bikes();
+  const std::vector<free_bike>& dockless_bikes();
+private:
+  std::vector<free_bike> bikes_;
+  std::vector<free_bike> dockless_bikes_;
 };
 
 struct gbfs_operator {
@@ -111,12 +125,14 @@ struct gbfs_operator {
   gbfs_urls& urls();
   gbfs_system_information& system_information();
   gbfs_station_information& station_information();
+  gbfs_free_bike_status& free_bike_status();
 
 private:
   // Data fields
   gbfs_system_information system_information_;
   gbfs_urls urls_;
   gbfs_station_information station_information_;
+  gbfs_free_bike_status free_bike_status_;
 
   // Network
   std::string url;

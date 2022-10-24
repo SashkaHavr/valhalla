@@ -53,6 +53,13 @@ gbfs_station_information& gbfs_operator::station_information() {
   return station_information_;
 }
 
+gbfs_free_bike_status& gbfs_operator::free_bike_status() {
+  if(free_bike_status_.is_outdated()) {
+    free_bike_status_ = gbfs_free_bike_status(fetch_json(urls().free_bike_status_url()));
+  }
+  return free_bike_status_;
+}
+
 std::string gbfs_urls::get_url(std::string key) {
   auto urls = data()["en"]["feeds"].GetArray();
   auto res = std::find_if(urls.begin(), urls.end(), [&key](rapidjson::Value& val){return std::string(val["name"].GetString()) == key;});
@@ -73,6 +80,31 @@ const std::vector<station_information>& gbfs_station_information::stations() {
   return stations_;
 }
 
+const std::vector<free_bike>& gbfs_free_bike_status::bikes() {
+  if(bikes_.size() > 0) {
+    return bikes_;
+  }
+  auto json_bikes = data()["bikes"].GetArray();
+  for(const auto& json_bike : json_bikes) {
+    bikes_.push_back({json_bike["bike_id"].GetString(), {json_bike["lon"].GetDouble(), json_bike["lat"].GetDouble()}});
+    auto it = json_bike.FindMember("station_id");
+    if(it != json_bike.MemberEnd()) {
+      bikes_.back().station_id = it->value.GetString();
+    }
+  }
+  return bikes_;
+}
+
+const std::vector<free_bike>& gbfs_free_bike_status::dockless_bikes() {
+  if(dockless_bikes_.size() > 0) {
+    return dockless_bikes_;
+  }
+  if(bikes_.size() == 0) {
+    bikes();
+  }
+  std::copy_if(bikes_.begin(), bikes_.end(), std::back_inserter(dockless_bikes_), [](free_bike& bike) { return bike.station_id == kGBFSInvalidId;});
+  return dockless_bikes_;
+}
 
 } //namespace valhalla
 } //namespace mjolnir
