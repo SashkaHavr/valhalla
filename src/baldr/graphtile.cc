@@ -1181,8 +1181,8 @@ uint32_t GraphTile::turnlanes_offset(const uint32_t idx) const {
 void GraphTile::ParseFreeBikesData() {
   std::string delimiter = ":)";
   size_t pos = 0;
-  std::string token;
   std::string s = std::string(fb_string_);
+  std::string token = s;
   std::vector<std::string> all_ids;
   while ((pos = s.find(delimiter)) != std::string::npos) {
     token = s.substr(0, pos);

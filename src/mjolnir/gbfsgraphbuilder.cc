@@ -96,43 +96,10 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
   LOG_INFO("GBFS ----- Last standard building stages: start - Elevation, end - Cleanup");
   build_tile_set(config, input_files, valhalla::mjolnir::BuildStage::kElevation, valhalla::mjolnir::BuildStage::kCleanup);
   }
+
+  update_free_bike_info();
+
   int total = 0;
-  LOG_INFO("GBFS ----- Fetching operators");
-  GraphReader reader(config.get_child("mjolnir"));
-  gbfs_operator_getter operator_getter(config);
-  auto operators = operator_getter.operators();
-  for(gbfs_operator* o : operators) {
-    LOG_INFO("Opearator: " + o->system_information().operator_name());
-    for(free_bike bike : o->free_bike_status().free_bikes()) {
-      LOG_INFO((boost::format("Free bike: id: %1%, lat: %2%, lng: %3%, station: %4%") % bike.id % bike.location.lat() % bike.location.lng() % bike.station_id).str());
-
-      GraphId tile_id = TileHierarchy::GetGraphId(bike.location, TileHierarchy::levels().back().level);
-      graph_tile_ptr tile = reader.GetGraphTile(tile_id);
-      assert(tile);
-
-      // Find the closest node for bike
-      double min_distance = DBL_MAX;
-      uint32_t closest_node = -1;
-      for (uint32_t i = 0; i < tile->header()->nodecount(); ++i) {
-        const NodeInfo* nodeinfo = tile->node(i);
-        PointLL nodell = nodeinfo->latlng(tile->header()->base_ll());
-        if(!nodell.ApproximatelyEqual(bike.location, 0.001)) {
-          continue;
-        }
-        auto distance = nodell.Distance(bike.location);
-        if(distance < min_distance) {
-          min_distance = distance;
-          closest_node = i;
-        }
-      }
-      GraphTileBuilder tilebuilder(tile_dir, tile_id, true);
-      tilebuilder.free_bikes_builder()[closest_node].push_back(bike.id);
-      tilebuilder.StoreTileData();
-      total++;
-    }
-  }
-  LOG_INFO((boost::format("GBFS ----- Total bikes saved: %1%") % total).str());
-  total = 0;
   LOG_INFO("GBFS ----- Loading free bikes");
   GraphReader reader2(config.get_child("mjolnir"));
   auto local_tiles = reader2.GetTileSet();
@@ -673,7 +640,48 @@ DirectedEdge& gbfs_graph_builder::create_inbound_station_edge(GraphReader& reade
   return create_station_edge(tilebuilder, tile, edge, inbound_edge.start_node, inbound_edge.end_node, shape, inbound_edge.access);
 }
 
+void gbfs_graph_builder::update_free_bike_info() {
+  int total = 0;
+  LOG_INFO("GBFS ----- Fetching operators");
+  GraphReader reader(config.get_child("mjolnir"));
+  gbfs_operator_getter operator_getter(config);
+  auto operators = operator_getter.operators();
+  for(gbfs_operator* o : operators) {
+    LOG_INFO("Opearator: " + o->system_information().operator_name());
+    for(free_bike bike : o->free_bike_status().free_bikes()) {
+      GraphId tile_id = TileHierarchy::GetGraphId(bike.location, TileHierarchy::levels().back().level);
+      graph_tile_ptr tile = reader.GetGraphTile(tile_id);
+      assert(tile);
 
+      // Find the closest node for bike
+      double min_distance = DBL_MAX;
+      uint32_t closest_node = UINT32_MAX;
+      for (uint32_t i = 0; i < tile->header()->nodecount(); ++i) {
+        const NodeInfo* nodeinfo = tile->node(i);
+        PointLL nodell = nodeinfo->latlng(tile->header()->base_ll());
+        if(!nodell.ApproximatelyEqual(bike.location, 0.001)) {
+          continue;
+        }
+        auto distance = nodell.Distance(bike.location);
+        if(distance < min_distance) {
+          min_distance = distance;
+          closest_node = i;
+        }
+      }
+      if(closest_node != UINT32_MAX) {
+        GraphTileBuilder tilebuilder(tile_dir, tile_id, true);
+        tilebuilder.free_bikes_builder()[closest_node].push_back(bike.id);
+        LOG_INFO((boost::format("Free bike: id: %1%, tile: %2%") % bike.id % tile_id).str());
+        tilebuilder.StoreTileData();
+        total++;
+      }
+      else {
+        LOG_ERROR("Bike not saved");
+      }
+    }
+  }
+  LOG_INFO((boost::format("GBFS ----- Total bikes saved: %1%") % total).str());
+}
 
 
 } // namespace gbfs

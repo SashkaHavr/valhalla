@@ -93,6 +93,8 @@ private:
   DirectedEdge& create_inbound_station_edge(GraphReader& reader, GraphTileBuilder& tilebuilder, station_inbound_edge inbound_edge);
 
   inline bool is_access_equal(const DirectedEdge* edge, uint32_t access);
+
+  void update_free_bike_info();
 };
 
 
