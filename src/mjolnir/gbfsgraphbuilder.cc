@@ -96,17 +96,65 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
   LOG_INFO("GBFS ----- Last standard building stages: start - Elevation, end - Cleanup");
   build_tile_set(config, input_files, valhalla::mjolnir::BuildStage::kElevation, valhalla::mjolnir::BuildStage::kCleanup);
   }
-
+  int total = 0;
   LOG_INFO("GBFS ----- Fetching operators");
-
+  GraphReader reader(config.get_child("mjolnir"));
   gbfs_operator_getter operator_getter(config);
   auto operators = operator_getter.operators();
   for(gbfs_operator* o : operators) {
     LOG_INFO("Opearator: " + o->system_information().operator_name());
-    for(free_bike s : o->free_bike_status().dockless_bikes()) {
-      LOG_INFO((boost::format("Free bike: id: %1%, lat: %2%, lng: %3%, station: %4%") % s.id % s.location.lat() % s.location.lng() % s.station_id).str());
+    for(free_bike bike : o->free_bike_status().free_bikes()) {
+      LOG_INFO((boost::format("Free bike: id: %1%, lat: %2%, lng: %3%, station: %4%") % bike.id % bike.location.lat() % bike.location.lng() % bike.station_id).str());
+
+      GraphId tile_id = TileHierarchy::GetGraphId(bike.location, TileHierarchy::levels().back().level);
+      graph_tile_ptr tile = reader.GetGraphTile(tile_id);
+      assert(tile);
+
+      // Find the closest node for bike
+      double min_distance = DBL_MAX;
+      uint32_t closest_node = -1;
+      for (uint32_t i = 0; i < tile->header()->nodecount(); ++i) {
+        const NodeInfo* nodeinfo = tile->node(i);
+        PointLL nodell = nodeinfo->latlng(tile->header()->base_ll());
+        if(!nodell.ApproximatelyEqual(bike.location, 0.001)) {
+          continue;
+        }
+        auto distance = nodell.Distance(bike.location);
+        if(distance < min_distance) {
+          min_distance = distance;
+          closest_node = i;
+        }
+      }
+      GraphTileBuilder tilebuilder(tile_dir, tile_id, true);
+      tilebuilder.free_bikes_builder()[closest_node].push_back(bike.id);
+      tilebuilder.StoreTileData();
+      total++;
     }
   }
+  LOG_INFO((boost::format("GBFS ----- Total bikes saved: %1%") % total).str());
+  total = 0;
+  LOG_INFO("GBFS ----- Loading free bikes");
+  GraphReader reader2(config.get_child("mjolnir"));
+  auto local_tiles = reader2.GetTileSet();
+  for (const auto& tile_id : local_tiles) {
+    // Get the graph tile. Skip if no tile exists (should not happen!?)
+    graph_tile_ptr tile = reader2.GetGraphTile(tile_id);
+    assert(tile);
+    const auto& bikes = tile->free_bikes();
+    for (uint32_t i = 0; i < tile->header()->nodecount(); ++i) {
+      auto ids_it = bikes.find(i);
+      if(ids_it != bikes.end()) {
+        GraphId node_id(tile_id.tileid(), tile_id.level(), i);
+        const std::vector<std::string>& ids = (*ids_it).second;
+        for(std::string id : ids) {
+          LOG_INFO((boost::format("Free bike: id: %1%, node: %2%") % id % node_id).str());
+          total++;
+        }
+      }
+    }
+  }
+  LOG_INFO((boost::format("GBFS ----- Total bikes loaded: %1%") % total).str());
+
   return true;
 }
 
@@ -624,6 +672,7 @@ DirectedEdge& gbfs_graph_builder::create_inbound_station_edge(GraphReader& reade
   std::reverse(shape.begin(), shape.end());
   return create_station_edge(tilebuilder, tile, edge, inbound_edge.start_node, inbound_edge.end_node, shape, inbound_edge.access);
 }
+
 
 
 

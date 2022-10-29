@@ -460,6 +460,10 @@ public:
    */
   void UpdatePredictedSpeeds(const std::vector<DirectedEdge>& directededges);
 
+  std::unordered_map<uint32_t, std::vector<std::string>>& free_bikes_builder() {
+    return free_bikes_;
+  }
+
 protected:
   struct EdgeTupleHasher {
     std::size_t operator()(const edge_tuple& k) const {

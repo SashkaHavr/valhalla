@@ -7,6 +7,7 @@
 #include "midgard/logging.h"
 #include <algorithm>
 #include <boost/format.hpp>
+#include <boost/algorithm/string/join.hpp>
 #include <list>
 #include <set>
 #include <stdexcept>
@@ -304,6 +305,26 @@ void GraphTileBuilder::StoreTileData() {
     in_mem.write(reinterpret_cast<const char*>(admins_builder_.data()),
                  admins_builder_.size() * sizeof(Admin));
 
+    // GBFS free bike information
+    std::vector<fb_node> fb_nodes_builder;
+    std::vector<std::string> fb_string_builder;
+    uint32_t string_offset = 0;
+    for(const auto& fb_node : free_bikes_) {
+      fb_nodes_builder.push_back({fb_node.first, string_offset});
+      for(const auto& bike_id : fb_node.second) {
+        fb_string_builder.push_back(bike_id);
+        string_offset++;
+      }
+    }
+    header_builder_.set_fb_nodes_count(fb_nodes_builder.size());
+    std::string free_bikes_string = boost::algorithm::join(fb_string_builder, ":)");
+    header_builder_.set_fb_string_length(free_bikes_string.length());
+    in_mem.write(reinterpret_cast<const char*>(fb_nodes_builder.data()),
+                  fb_nodes_builder.size() * sizeof(fb_node));
+    in_mem.write(reinterpret_cast<const char*>(free_bikes_string.c_str()),
+                  free_bikes_string.length());
+    
+
     // Edge bins can only be added after you've stored the tile
 
     // Write the forward complex restriction data
@@ -319,7 +340,8 @@ void GraphTileBuilder::StoreTileData() {
         (schedule_builder_.size() * sizeof(TransitSchedule)) +
         // TODO - once transit transfers are added need to update here
         (signs_builder_.size() * sizeof(Sign)) + (turnlanes_builder_.size() * sizeof(TurnLanes)) +
-        (admins_builder_.size() * sizeof(Admin)));
+        (admins_builder_.size() * sizeof(Admin)) +
+        (fb_nodes_builder.size() * sizeof(fb_node) + free_bikes_string.length()));
     uint32_t forward_restriction_size = 0;
     for (auto& complex_restriction : complex_restriction_forward_builder_) {
       in_mem << complex_restriction;

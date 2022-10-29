@@ -330,6 +330,17 @@ void GraphTile::Initialize(const GraphId& graphid) {
   admins_ = reinterpret_cast<Admin*>(ptr);
   ptr += header_->admincount() * sizeof(Admin);
 
+  // Set GBFS free bike data
+  if(header_->fb_nodes_count() > 0) {
+    fb_nodes_ = reinterpret_cast<fb_node*>(ptr);
+    ptr += header_->fb_nodes_count() * sizeof(fb_node);
+
+    fb_string_ = ptr;
+    ptr += header_->fb_string_length();
+
+    ParseFreeBikesData();
+  }
+
   // Set a pointer to the edge bin list
   edge_bins_ = reinterpret_cast<GraphId*>(ptr);
 
@@ -1165,6 +1176,31 @@ uint32_t GraphTile::turnlanes_offset(const uint32_t idx) const {
   }
   auto tl = std::lower_bound(&turnlanes_[0], &turnlanes_[count], TurnLanes(idx, 0));
   return tl != &turnlanes_[count] ? tl->text_offset() : 0;
+}
+
+void GraphTile::ParseFreeBikesData() {
+  std::string delimiter = ":)";
+  size_t pos = 0;
+  std::string token;
+  std::string s = std::string(fb_string_);
+  std::vector<std::string> all_ids;
+  while ((pos = s.find(delimiter)) != std::string::npos) {
+    token = s.substr(0, pos);
+    all_ids.push_back(token);
+    s.erase(0, pos + delimiter.length());
+  }
+  all_ids.push_back(token);
+
+  for(uint32_t i = 0; i < header_->fb_nodes_count(); i++) {
+    fb_node node = fb_nodes_[i];
+    uint32_t from = node.offset_to_free_bike_ids;
+    uint32_t to = all_ids.size();
+    if(i < header_->fb_nodes_count() - 1) {
+      to = fb_nodes_[i + 1].offset_to_free_bike_ids;
+    }
+    std::vector<std::string> ids(all_ids.begin() + from, all_ids.begin() + to);
+    free_bikes_[node.node_id] = ids;
+  }
 }
 
 } // namespace baldr

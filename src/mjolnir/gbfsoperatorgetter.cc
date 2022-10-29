@@ -95,15 +95,15 @@ const std::vector<free_bike>& gbfs_free_bike_status::bikes() {
   return bikes_;
 }
 
-const std::vector<free_bike>& gbfs_free_bike_status::dockless_bikes() {
-  if(dockless_bikes_.size() > 0) {
-    return dockless_bikes_;
+const std::vector<free_bike>& gbfs_free_bike_status::free_bikes() {
+  if(free_bikes_.size() > 0) {
+    return free_bikes_;
   }
   if(bikes_.size() == 0) {
     bikes();
   }
-  std::copy_if(bikes_.begin(), bikes_.end(), std::back_inserter(dockless_bikes_), [](free_bike& bike) { return bike.station_id == kGBFSInvalidId;});
-  return dockless_bikes_;
+  std::copy_if(bikes_.begin(), bikes_.end(), std::back_inserter(free_bikes_), [](free_bike& bike) { return bike.station_id == kGBFSInvalidId;});
+  return free_bikes_;
 }
 
 } //namespace valhalla

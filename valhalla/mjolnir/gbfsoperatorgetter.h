@@ -108,10 +108,10 @@ struct gbfs_free_bike_status : gbfs_base {
   using gbfs_base::gbfs_base;
 
   const std::vector<free_bike>& bikes();
-  const std::vector<free_bike>& dockless_bikes();
+  const std::vector<free_bike>& free_bikes();
 private:
   std::vector<free_bike> bikes_;
-  std::vector<free_bike> dockless_bikes_;
+  std::vector<free_bike> free_bikes_;
 };
 
 struct gbfs_operator {
