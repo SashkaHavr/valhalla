@@ -48,6 +48,7 @@ struct gbfs_graph_builder {
   boost::property_tree::ptree& config;
   const std::vector<std::string>& input_files;
   std::string tile_dir;
+  std::unordered_map<GraphId, GraphId> pedestrian_to_bike_nodes;
 
   gbfs_graph_builder(boost::property_tree::ptree& config,
                    const std::vector<std::string>& input_files) :
