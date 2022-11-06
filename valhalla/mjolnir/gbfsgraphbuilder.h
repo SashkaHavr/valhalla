@@ -48,7 +48,9 @@ struct gbfs_graph_builder {
   boost::property_tree::ptree& config;
   const std::vector<std::string>& input_files;
   std::string tile_dir;
-  std::unordered_map<GraphId, GraphId> pedestrian_to_bike_nodes;
+  std::unordered_map<GraphId, std::unordered_map<GraphId, GraphId>> pedestrian_to_bicycle_nodes;
+  std::unordered_map<GraphId, std::vector<GraphId>> stations_old;
+  std::unordered_map<GraphId, std::vector<GraphId>> transitions_to_add;
 
   gbfs_graph_builder(boost::property_tree::ptree& config,
                    const std::vector<std::string>& input_files) :
@@ -96,6 +98,8 @@ private:
   inline bool is_access_equal(const DirectedEdge* edge, uint32_t access);
 
   void update_free_bike_info();
+
+  void add_transitions();
 };
 
 
