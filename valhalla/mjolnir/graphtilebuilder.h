@@ -460,7 +460,7 @@ public:
    */
   void UpdatePredictedSpeeds(const std::vector<DirectedEdge>& directededges);
 
-  std::unordered_map<uint32_t, std::vector<fb_node>>& gbfs_locations_builder() {
+  std::unordered_map<uint32_t, std::vector<gbfs_location_node>>& gbfs_locations_builder() {
     return gbfs_locations_;
   }
 

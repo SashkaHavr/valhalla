@@ -420,16 +420,16 @@ public:
    * Gets the number of nodes that are associated with free bikes in this tile.
    * @return  Returns the number of nodes that are associated with free bikes.
    */
-  uint32_t fb_nodes_count() {
-    return fb_nodes_count_;
+  uint32_t gbfs_location_nodes_count() {
+    return gbfs_location_nodes_count_;
   }
 
   /**
    * Sets the number of nodes that are associated with free bikes within this tile.
    * @param count Number of nodes that are associated with free bikes within the tile.
    */
-  void set_fb_nodes_count(const uint32_t count) {
-    fb_nodes_count_ = count;
+  void set_gbfs_location_nodes_count(const uint32_t count) {
+    gbfs_location_nodes_count_ = count;
   }
 
   /**
@@ -703,8 +703,8 @@ protected:
   // GraphTile data size in bytes
   uint32_t tile_size_;
 
-  // GBFS free bikes data
-  uint16_t fb_nodes_count_;
+  // GBFS locations data size
+  uint16_t gbfs_location_nodes_count_;
 
 
   // Marks the end of this version of the tile with the rest of the slots

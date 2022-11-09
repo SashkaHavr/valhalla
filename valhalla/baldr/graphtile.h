@@ -700,7 +700,7 @@ public:
     return traffic_tile;
   }
 
-  const std::unordered_map<uint32_t, std::vector<fb_node>>& gbfs_locations() const {
+  const std::unordered_map<uint32_t, std::vector<gbfs_location_node>>& gbfs_locations() const {
     return gbfs_locations_;
   }
 
@@ -754,8 +754,8 @@ protected:
   // indexed directly.
   Admin* admins_{};
 
-  // GBFS free bike data
-  fb_node* fb_nodes_{};
+  // GBFS locations data
+  gbfs_location_node* gbfs_location_nodes_{};
 
   // List of complex_restrictions in the forward direction.
   char* complex_restriction_forward_{};
@@ -805,9 +805,9 @@ protected:
   // Map of operator one stops in this tile.
   std::unordered_map<std::string, std::list<GraphId>> oper_one_stops;
 
-  // Structured GBFS free bike data
-  // Free bikes are divided by corresponding node id
-  std::unordered_map<uint32_t, std::vector<fb_node>> gbfs_locations_;
+  // Structured GBFS locations data
+  // Locations are divided by corresponding node id
+  std::unordered_map<uint32_t, std::vector<gbfs_location_node>> gbfs_locations_;
 
   // Pointer to live traffic data (can be nullptr if not active)
   TrafficTile traffic_tile{nullptr};

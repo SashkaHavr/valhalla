@@ -7,7 +7,6 @@
 #include "midgard/logging.h"
 #include <algorithm>
 #include <boost/format.hpp>
-#include <boost/algorithm/string/join.hpp>
 #include <list>
 #include <set>
 #include <stdexcept>
@@ -306,13 +305,13 @@ void GraphTileBuilder::StoreTileData() {
                  admins_builder_.size() * sizeof(Admin));
 
     // GBFS location information
-    std::vector<fb_node> fb_nodes_builder;
+    std::vector<gbfs_location_node> gbfs_location_nodes_builder;
     for(const auto& location : gbfs_locations_) {
-      fb_nodes_builder.insert(fb_nodes_builder.end(), location.second.begin(), location.second.end());
+      gbfs_location_nodes_builder.insert(gbfs_location_nodes_builder.end(), location.second.begin(), location.second.end());
     }
-    header_builder_.set_fb_nodes_count(fb_nodes_builder.size());
-    in_mem.write(reinterpret_cast<const char*>(fb_nodes_builder.data()),
-                  fb_nodes_builder.size() * sizeof(fb_node));
+    header_builder_.set_gbfs_location_nodes_count(gbfs_location_nodes_builder.size());
+    in_mem.write(reinterpret_cast<const char*>(gbfs_location_nodes_builder.data()),
+                  gbfs_location_nodes_builder.size() * sizeof(gbfs_location_node));
     
 
     // Edge bins can only be added after you've stored the tile
@@ -331,7 +330,7 @@ void GraphTileBuilder::StoreTileData() {
         // TODO - once transit transfers are added need to update here
         (signs_builder_.size() * sizeof(Sign)) + (turnlanes_builder_.size() * sizeof(TurnLanes)) +
         (admins_builder_.size() * sizeof(Admin)) +
-        (fb_nodes_builder.size() * sizeof(fb_node)));
+        (gbfs_location_nodes_builder.size() * sizeof(gbfs_location_node)));
     uint32_t forward_restriction_size = 0;
     for (auto& complex_restriction : complex_restriction_forward_builder_) {
       in_mem << complex_restriction;

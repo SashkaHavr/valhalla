@@ -331,12 +331,12 @@ void GraphTile::Initialize(const GraphId& graphid) {
   ptr += header_->admincount() * sizeof(Admin);
 
   // Set GBFS locations data
-  if(header_->fb_nodes_count() > 0) {
-    fb_nodes_ = reinterpret_cast<fb_node*>(ptr);
-    ptr += header_->fb_nodes_count() * sizeof(fb_node);
+  if(header_->gbfs_location_nodes_count() > 0) {
+    gbfs_location_nodes_ = reinterpret_cast<gbfs_location_node*>(ptr);
+    ptr += header_->gbfs_location_nodes_count() * sizeof(gbfs_location_node);
 
-    for(int i = 0; i < header_->fb_nodes_count(); i++) {
-      fb_node& n = fb_nodes_[i];
+    for(int i = 0; i < header_->gbfs_location_nodes_count(); i++) {
+      gbfs_location_node& n = gbfs_location_nodes_[i];
       gbfs_locations_[n.node_id].push_back(n);
     }
   }

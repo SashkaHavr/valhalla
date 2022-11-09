@@ -127,7 +127,7 @@ bool gbfs_graph_builder::build(bool parse_osm_first) {
     assert(tile);
     for (const auto& location : tile->gbfs_locations()) {
       GraphId node_id(tile_id.tileid(), tile_id.level(), location.first);
-      const std::vector<fb_node>& ids = location.second;
+      const std::vector<gbfs_location_node>& ids = location.second;
       for(const auto& id : ids) {
         LOG_INFO((boost::format("GBFS ----- Location id: %1%; node id: %2%; type: %3%") % std::string(id.id.data()) % node_id % static_cast<int>(id.type)).str());
         total++;
