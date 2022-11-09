@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <array>
 
 // struct fb_edge_map
 // {
@@ -14,5 +15,6 @@
 
 struct fb_node {
   uint32_t node_id;
-  uint32_t offset_to_free_bike_ids;
+  uint8_t type;
+  std::array<char, 64> id;
 };

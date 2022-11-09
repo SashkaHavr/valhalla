@@ -433,22 +433,6 @@ public:
   }
 
   /**
-   * Gets the length of composed string of free bike ids in this tile.
-   * @return  Returns the length of composed string of free bike ids.
-   */
-  uint32_t fb_string_length() {
-    return fb_string_length_;
-  }
-
-  /**
-   * Sets the length of composed string of free bike ids within this tile.
-   * @param length Length of composed string of free bike ids within the tile.
-   */
-  void set_fb_string_length(const uint32_t length) {
-    fb_string_length_ = length;
-  }
-
-  /**
    * Get the offset to the Complex Restriction list in the forward direction.
    * @return  Returns the number of bytes to offset to the the list of
    *          complex restrictions.
@@ -721,7 +705,6 @@ protected:
 
   // GBFS free bikes data
   uint16_t fb_nodes_count_;
-  uint64_t fb_string_length_;
 
 
   // Marks the end of this version of the tile with the rest of the slots

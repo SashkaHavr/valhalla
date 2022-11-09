@@ -36,11 +36,39 @@ struct station_inbound_edge {
   GraphId closest_edge;
   std::tuple<PointLL, double, int> best_projection;
   uint32_t access;
-  station_information station;
+  PointLL location;
+  std::string id;
   
-  station_inbound_edge(GraphId start_node, GraphId end_node, GraphId closest_edge, std::tuple<PointLL, double, int> best_projection, uint32_t access, const station_information& station)
-    : start_node(start_node), end_node(end_node), closest_edge(closest_edge), best_projection(best_projection), access(access), station(station) {
+  station_inbound_edge(GraphId start_node, GraphId end_node, GraphId closest_edge, std::tuple<PointLL, double, int> best_projection, uint32_t access, PointLL location)
+    : start_node(start_node), end_node(end_node), closest_edge(closest_edge), best_projection(best_projection), access(access), location(location){
 
+  }
+};
+
+enum class LocationObjectType : uint8_t {
+  kNone = 0,
+  kBicycleStation = 1,
+  kFreeBike = 2
+};
+
+struct id_location_object {
+  std::string id;
+  PointLL location;
+  uint8_t type;
+
+
+  id_location_object(std::string id, PointLL location, uint8_t type) : id(id), location(location), type(type) { 
+    if(id.length() > 63) {
+      LOG_ERROR("GBFS ----- Location ID is too long");
+      throw std::exception();
+    }
+  }
+
+  std::array<char, 64> id_array() {
+     std::array<char, 64> res;
+     std::copy(id.begin(), id.end(), res.data());
+     res[id.length()] = '\0';
+     return res;
   }
 };
 
@@ -90,7 +118,7 @@ private:
   NodeInfo& copy_node(const GraphId& nodeid, const NodeInfo* nodeinfo, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, uint32_t edge_count, uint32_t edge_index);
 
   void add_station_network(gbfs_operator* gbfs_op, std::unordered_map<GraphId, std::vector<station_inbound_edge>>& inbound_edges);
-  NodeInfo& create_station_node(GraphTileBuilder& tilebuilder, graph_tile_ptr& tile, const station_information& station);
+  NodeInfo& create_station_node(GraphTileBuilder& tilebuilder, graph_tile_ptr& tile, PointLL location);
   DirectedEdge& create_station_edge(GraphTileBuilder& tilebuilder, graph_tile_ptr& tile, const DirectedEdge* closest_edge, GraphId start_node, GraphId end_node, std::vector<PointLL> shape, uint32_t access);
   std::pair<std::vector<PointLL>, std::vector<PointLL>> create_shapes_to_edge_nodes(PointLL start_location, std::tuple<PointLL, double, int> best_projection, std::vector<PointLL> shape);
   DirectedEdge& create_inbound_station_edge(GraphReader& reader, GraphTileBuilder& tilebuilder, station_inbound_edge inbound_edge);
@@ -100,6 +128,8 @@ private:
   void update_free_bike_info();
 
   void add_transitions();
+
+  void create_node_and_edges_in_location(GraphTileBuilder& tilebuilder, GraphId tile_id, graph_tile_ptr& tile, id_location_object location, std::unordered_map<GraphId, std::vector<station_inbound_edge>>& inbound_edges);
 };
 
 

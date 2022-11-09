@@ -460,8 +460,8 @@ public:
    */
   void UpdatePredictedSpeeds(const std::vector<DirectedEdge>& directededges);
 
-  std::unordered_map<uint32_t, std::vector<std::string>>& free_bikes_builder() {
-    return free_bikes_;
+  std::unordered_map<uint32_t, std::vector<fb_node>>& gbfs_locations_builder() {
+    return gbfs_locations_;
   }
 
 protected:

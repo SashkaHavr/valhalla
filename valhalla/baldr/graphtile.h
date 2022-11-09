@@ -700,8 +700,8 @@ public:
     return traffic_tile;
   }
 
-  const std::unordered_map<uint32_t, std::vector<std::string>>& free_bikes() const {
-    return free_bikes_;
+  const std::unordered_map<uint32_t, std::vector<fb_node>>& gbfs_locations() const {
+    return gbfs_locations_;
   }
 
 protected:
@@ -756,7 +756,6 @@ protected:
 
   // GBFS free bike data
   fb_node* fb_nodes_{};
-  char* fb_string_{};
 
   // List of complex_restrictions in the forward direction.
   char* complex_restriction_forward_{};
@@ -808,7 +807,7 @@ protected:
 
   // Structured GBFS free bike data
   // Free bikes are divided by corresponding node id
-  std::unordered_map<uint32_t, std::vector<std::string>> free_bikes_;
+  std::unordered_map<uint32_t, std::vector<fb_node>> gbfs_locations_;
 
   // Pointer to live traffic data (can be nullptr if not active)
   TrafficTile traffic_tile{nullptr};
@@ -861,12 +860,6 @@ protected:
    * @param  graphid  Tile Id.
    */
   void AssociateOneStopIds(const GraphId& graphid);
-
-  /**
-   * Construct structured data from fb_nodes_ and fb_string_
-   * and saves it in free_bikes_
-  */
-  void ParseFreeBikesData();
 
   /** Decrompresses tile bytes into the internal graphtile byte buffer
    * @param  graphid     the id of the tile to be decompressed
