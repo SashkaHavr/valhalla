@@ -76,8 +76,9 @@ struct gbfs_graph_builder {
   boost::property_tree::ptree& config;
   const std::vector<std::string>& input_files;
   std::string tile_dir;
-  std::unordered_map<GraphId, std::vector<GraphId>> stations_old;
+  std::unordered_map<GraphId, std::vector<gbfs_location_node>> stations_old;
   std::unordered_map<GraphId, std::vector<station_inbound_edge>> inbound_edges;
+  std::unordered_map<GraphId, std::vector<uint32_t>> nodes_to_remove;
 
   gbfs_graph_builder(boost::property_tree::ptree& config,
                    const std::vector<std::string>& input_files) :
@@ -90,6 +91,7 @@ struct gbfs_graph_builder {
   }
 
   bool build(bool parse_osm_first);
+  void reload_free_bike_nodes();
 
 private:
   /**
@@ -116,7 +118,7 @@ private:
   DirectedEdge& copy_edge(const DirectedEdge* directededge, const GraphId& edgeid, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, const GraphId& nodeid);
   NodeInfo& copy_node(const GraphId& nodeid, const NodeInfo* nodeinfo, graph_tile_ptr& tile, GraphTileBuilder& tilebuilder, uint32_t edge_count, uint32_t edge_index);
 
-  void add_gbfs_locations(gbfs_operator* gbfs_op);
+  void add_gbfs_locations(std::unordered_map<GraphId, std::vector<id_location_object>> tileid_to_locations);
   NodeInfo& create_station_node(GraphTileBuilder& tilebuilder, graph_tile_ptr& tile, PointLL location);
   DirectedEdge& create_station_edge(GraphTileBuilder& tilebuilder, graph_tile_ptr& tile, const DirectedEdge* closest_edge, GraphId start_node, GraphId end_node, std::vector<PointLL> shape, uint32_t access);
   std::pair<std::vector<PointLL>, std::vector<PointLL>> create_shapes_to_edge_nodes(PointLL start_location, std::tuple<PointLL, double, int> best_projection, std::vector<PointLL> shape);
@@ -124,6 +126,7 @@ private:
   inline bool is_access_equal(const DirectedEdge* edge, uint32_t access);
   void create_node_and_edges_in_location(GraphTileBuilder& tilebuilder, GraphId tile_id, graph_tile_ptr& tile, id_location_object location);
   void create_transition(NodeInfo& from, GraphId to, GraphTileBuilder& tilebuilder, bool up);
+  std::unordered_map<GraphId, std::vector<id_location_object>> collect_gbgs_locations(bool only_free_bikes);
 };
 
 

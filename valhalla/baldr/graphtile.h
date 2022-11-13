@@ -700,7 +700,7 @@ public:
     return traffic_tile;
   }
 
-  const std::unordered_map<uint32_t, std::vector<gbfs_location_node>>& gbfs_locations() const {
+  const std::vector<gbfs_location_node>& gbfs_locations() const {
     return gbfs_locations_;
   }
 
@@ -807,7 +807,7 @@ protected:
 
   // Structured GBFS locations data
   // Locations are divided by corresponding node id
-  std::unordered_map<uint32_t, std::vector<gbfs_location_node>> gbfs_locations_;
+  std::vector<gbfs_location_node> gbfs_locations_;
 
   // Pointer to live traffic data (can be nullptr if not active)
   TrafficTile traffic_tile{nullptr};

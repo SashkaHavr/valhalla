@@ -305,13 +305,9 @@ void GraphTileBuilder::StoreTileData() {
                  admins_builder_.size() * sizeof(Admin));
 
     // GBFS location information
-    std::vector<gbfs_location_node> gbfs_location_nodes_builder;
-    for(const auto& location : gbfs_locations_) {
-      gbfs_location_nodes_builder.insert(gbfs_location_nodes_builder.end(), location.second.begin(), location.second.end());
-    }
-    header_builder_.set_gbfs_location_nodes_count(gbfs_location_nodes_builder.size());
-    in_mem.write(reinterpret_cast<const char*>(gbfs_location_nodes_builder.data()),
-                  gbfs_location_nodes_builder.size() * sizeof(gbfs_location_node));
+    header_builder_.set_gbfs_location_nodes_count(gbfs_locations_.size());
+    in_mem.write(reinterpret_cast<const char*>(gbfs_locations_.data()),
+                  gbfs_locations_.size() * sizeof(gbfs_location_node));
     
 
     // Edge bins can only be added after you've stored the tile
@@ -330,7 +326,7 @@ void GraphTileBuilder::StoreTileData() {
         // TODO - once transit transfers are added need to update here
         (signs_builder_.size() * sizeof(Sign)) + (turnlanes_builder_.size() * sizeof(TurnLanes)) +
         (admins_builder_.size() * sizeof(Admin)) +
-        (gbfs_location_nodes_builder.size() * sizeof(gbfs_location_node)));
+        (gbfs_locations_.size() * sizeof(gbfs_location_node)));
     uint32_t forward_restriction_size = 0;
     for (auto& complex_restriction : complex_restriction_forward_builder_) {
       in_mem << complex_restriction;

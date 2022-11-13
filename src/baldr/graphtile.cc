@@ -334,11 +334,7 @@ void GraphTile::Initialize(const GraphId& graphid) {
   if(header_->gbfs_location_nodes_count() > 0) {
     gbfs_location_nodes_ = reinterpret_cast<gbfs_location_node*>(ptr);
     ptr += header_->gbfs_location_nodes_count() * sizeof(gbfs_location_node);
-
-    for(int i = 0; i < header_->gbfs_location_nodes_count(); i++) {
-      gbfs_location_node& n = gbfs_location_nodes_[i];
-      gbfs_locations_[n.node_id].push_back(n);
-    }
+    gbfs_locations_ = std::vector<gbfs_location_node>(gbfs_location_nodes_, reinterpret_cast<gbfs_location_node*>(ptr));
   }
 
   // Set a pointer to the edge bin list
