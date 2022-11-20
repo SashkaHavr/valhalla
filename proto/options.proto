@@ -351,6 +351,7 @@ message Options {
     expansion = 10;
     centroid = 11;
     status = 12;
+    gbfs_route = 13;
   }
 
   enum DateTimeType {

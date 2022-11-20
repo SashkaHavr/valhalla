@@ -119,6 +119,11 @@ protected:
   // A child-class must implement this to tell the algorithm how much expansion to expect to do
   virtual void GetExpansionHints(uint32_t& bucket_count, uint32_t& edge_label_reservation) const = 0;
 
+  // A child-class must implement this to learn about when expansion starts
+  virtual void BeforeExpandInner(baldr::GraphReader& graphreader,
+                             graph_tile_ptr tile,
+                             const baldr::NodeInfo* node)  {}
+
   sif::TravelMode mode_; // Current travel mode
   uint32_t access_mode_; // Access mode used by the costing method
 

@@ -70,6 +70,7 @@ thor_worker_t::thor_worker_t(const boost::property_tree::ptree& config,
       bidir_astar(config.get_child("thor")), bss_astar(config.get_child("thor")),
       multi_modal_astar(config.get_child("thor")), timedep_forward(config.get_child("thor")),
       timedep_reverse(config.get_child("thor")), isochrone_gen(config.get_child("thor")),
+      gbfs_router(config.get_child("thor")),
       reader(graph_reader ? graph_reader
                           : std::make_shared<baldr::GraphReader>(config.get_child("mjolnir"))),
       matcher_factory(config, reader), controller{} {
@@ -169,6 +170,10 @@ thor_worker_t::work(const std::list<zmq::message_t>& job,
       case Options::status: {
         status(request);
         result.messages.emplace_back(serialize_to_pbf(request));
+        break;
+      }
+      case Options::gbfs_route: {
+        result = to_response(gbfs_route(request), info, request);
         break;
       }
       default:

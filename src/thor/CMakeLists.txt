@@ -8,6 +8,8 @@ set(sources
   costmatrix.cc
   dijkstras.cc
   expansion_action.cc
+  gbfs_routing.cc
+  gbfs_routing_action.cc
   isochrone_action.cc
   isochrone.cc
   map_matcher.cc

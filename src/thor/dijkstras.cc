@@ -128,7 +128,7 @@ void Dijkstras::ExpandInner(baldr::GraphReader& graphreader,
 
   // Get the nodeinfo
   const NodeInfo* nodeinfo = tile->node(node);
-
+  BeforeExpandInner(graphreader, tile, nodeinfo);
   // We dont need to do transitions again we just need to queue the edges that leave them
   if (!from_transition) {
     // Let implementing class know we are expanding from here

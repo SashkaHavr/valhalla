@@ -31,6 +31,7 @@
 #include <valhalla/thor/unidirectional_astar.h>
 #include <valhalla/tyr/actor.h>
 #include <valhalla/worker.h>
+#include <valhalla/thor/gbfs_routing.h>
 
 namespace valhalla {
 namespace thor {
@@ -69,6 +70,7 @@ public:
   std::string expansion(Api& request);
   void centroid(Api& request);
   void status(Api& request) const;
+  std::string gbfs_route(Api& request);
 
   void set_interrupt(const std::function<void()>* interrupt) override;
 
@@ -130,6 +132,7 @@ protected:
   TimeDistanceBSSMatrix time_distance_bss_matrix_;
 
   Isochrone isochrone_gen;
+  valhalla::thor::gbfs_routing gbfs_router;
   std::shared_ptr<meili::MapMatcher> matcher;
   float max_timedep_distance;
   std::unordered_map<std::string, float> max_matrix_distance;

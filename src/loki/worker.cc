@@ -306,6 +306,24 @@ loki_worker_t::work(const std::list<zmq::message_t>& job,
         isochrones(request);
         result.messages.emplace_back(request.SerializeAsString());
         break;
+      case Options::gbfs_route: {
+        auto& options = *request.mutable_options();
+        parse_locations(options.mutable_locations());
+        request.mutable_options()->set_costing_type(Costing::multimodal);
+        parse_costing(request, true);
+        try {
+          // correlate the various locations to the underlying graph
+          auto locations = PathLocation::fromPBF(options.locations());
+          const auto projections = loki::Search(locations, *reader, costing);
+          for (size_t i = 0; i < locations.size(); ++i) {
+            const auto& projection = projections.at(locations[i]);
+            PathLocation::toPBF(projection, options.mutable_locations(i), *reader);
+          }
+        } catch (const std::exception&) { throw valhalla_exception_t{171}; }
+        // isochrones(request);
+        result.messages.emplace_back(request.SerializeAsString());
+        break;
+      }
       case Options::trace_attributes:
       case Options::trace_route:
         trace(request);
