@@ -9,6 +9,7 @@ set(sources
   route_action.cc
   matrix_action.cc
   isochrone_action.cc
+  gbfs_routing_action.cc
   status_action.cc
   trace_route_action.cc
   transit_available_action.cc

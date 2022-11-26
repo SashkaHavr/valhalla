@@ -45,12 +45,6 @@ struct station_inbound_edge {
   }
 };
 
-enum class LocationObjectType : uint8_t {
-  kNone = 0,
-  kBicycleStation = 1,
-  kFreeBike = 2
-};
-
 struct id_location_object {
   std::string id;
   PointLL location;
@@ -74,23 +68,20 @@ struct id_location_object {
 
 struct gbfs_graph_builder {
   boost::property_tree::ptree& config;
-  const std::vector<std::string>& input_files;
   std::string tile_dir;
   std::unordered_map<GraphId, std::vector<gbfs_location_node>> stations_old;
   std::unordered_map<GraphId, std::vector<station_inbound_edge>> inbound_edges;
   std::unordered_map<GraphId, std::vector<uint32_t>> nodes_to_remove;
 
-  gbfs_graph_builder(boost::property_tree::ptree& config,
-                   const std::vector<std::string>& input_files) :
-                   config(config),
-                   input_files(input_files) {
+  gbfs_graph_builder(boost::property_tree::ptree& config) :
+                   config(config) {
     config.get_child("mjolnir").erase("tile_extract");
     config.get_child("mjolnir").erase("tile_url");
     config.get_child("mjolnir").erase("traffic_extract");
     tile_dir = config.get<std::string>("mjolnir.tile_dir");
   }
 
-  bool build(bool parse_osm_first);
+  bool build(bool parse_osm_first, const std::vector<std::string>& input_files);
   void reload_free_bike_nodes();
 
 private:

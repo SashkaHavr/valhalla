@@ -7,7 +7,7 @@ namespace valhalla {
 namespace mjolnir {
 namespace gbfs {
 
-bool gbfs_graph_builder::build(bool parse_osm_first) {
+bool gbfs_graph_builder::build(bool parse_osm_first, const std::vector<std::string>& input_files) {
   LOG_INFO("GBFS ----- Build started");
   std::chrono::steady_clock::time_point begin_total = std::chrono::steady_clock::now();
   if(parse_osm_first) {
@@ -545,7 +545,7 @@ std::unordered_map<GraphId, std::vector<id_location_object>> gbfs_graph_builder:
       }
       for(const station_information& station : stations) {
         GraphId tile_id = TileHierarchy::GetGraphId(station.location, TileHierarchy::levels().back().level);
-        tileid_to_locations[tile_id].push_back({station.id, station.location, static_cast<uint8_t>(LocationObjectType::kBicycleStation)});
+        tileid_to_locations[tile_id].push_back({station.id, station.location, static_cast<uint8_t>(gbfs_location_node_type::kBicycleStation)});
       }
     }
 
@@ -558,7 +558,7 @@ std::unordered_map<GraphId, std::vector<id_location_object>> gbfs_graph_builder:
     }
     for(const free_bike& free_bike : free_bikes) {
       GraphId tile_id = TileHierarchy::GetGraphId(free_bike.location, TileHierarchy::levels().back().level);
-      tileid_to_locations[tile_id].push_back({free_bike.id, free_bike.location, static_cast<uint8_t>(LocationObjectType::kFreeBike)});
+      tileid_to_locations[tile_id].push_back({free_bike.id, free_bike.location, static_cast<uint8_t>(gbfs_location_node_type::kFreeBike)});
     }
   }
   return tileid_to_locations;

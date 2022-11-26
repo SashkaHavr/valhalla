@@ -334,6 +334,10 @@ void parse_location(valhalla::Location* location,
   if (street_side_max_distance) {
     location->set_street_side_max_distance(*street_side_max_distance);
   }
+  auto gbfs_transport_station_id = rapidjson::get_optional<uint64_t>(r_loc, "/gbfs_transport_station_id");
+  if (gbfs_transport_station_id) {
+    location->set_gbfs_transport_station_id(*gbfs_transport_station_id);
+  }
 
   boost::optional<bool> exclude_closures;
   // is it json?
@@ -1035,6 +1039,15 @@ void from_json(rapidjson::Document& doc, Options::Action action, Api& api) {
       }
       options.add_filter_attributes(attribute);
     }
+  }
+
+  auto is_forward = rapidjson::get_optional<bool>(doc, "/is_forward");
+  if (is_forward) {
+    options.set_is_forward(*is_forward);
+  }
+  auto gbfs_max_duration = rapidjson::get_optional<uint32_t>(doc, "/gbfs_max_duration");
+  if (gbfs_max_duration) {
+    options.set_gbfs_max_duration(*gbfs_max_duration);
   }
 
   // deprecated best_paths for map matching top k

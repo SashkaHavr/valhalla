@@ -7,6 +7,35 @@
 namespace valhalla {
 namespace thor {
 
+struct gbfs_route_result {
+  sif::EdgeLabel label;
+  float time_total;
+
+  float time_pedestrian;
+  float time_bicycle;
+  gbfs_location_node start;
+  PointLL start_ll;
+
+  // Additional fields for stations
+  float time_pedestrian_end;
+  gbfs_location_node end_station;
+  PointLL end_station_ll;
+
+  // gbfs_route_result() : gbfs_route_result(sif::EdgeLabel(), 0, 0, 0, gbfs_location_node(), 0, gbfs_location_node()) {
+
+  // }
+
+  // gbfs_route_result(sif::EdgeLabel label, float time_total, float time_pedestrian, float time_bicycle, gbfs_location_node start) 
+  //   : gbfs_route_result(label, time_total, time_pedestrian, time_bicycle, start, 0, gbfs_location_node()) {
+
+  // }
+
+  // gbfs_route_result(sif::EdgeLabel label, float time_total, float time_pedestrian, float time_bicycle, gbfs_location_node start, float time_pedestrian_end, gbfs_location_node end_station) 
+  //   : label(label), time_total(time_total), time_pedestrian(time_pedestrian), time_bicycle(time_bicycle), start(start), time_pedestrian_end(time_pedestrian_end), end_station(end_station) {
+
+  // }
+};
+
 
 class gbfs_routing : public Dijkstras {
 
@@ -17,8 +46,8 @@ public:
  */
 explicit gbfs_routing(const boost::property_tree::ptree& config = {});
 
-std::vector<PointLL> Expand(ExpansionType expansion_type, valhalla::Api& api, baldr::GraphReader& reader,
-                    const sif::mode_costing_t& costings, const sif::TravelMode mode);
+std::vector<std::pair<uint64_t, gbfs_route_result>> Expand(ExpansionType expansion_type, valhalla::Api& api, baldr::GraphReader& reader,
+                    const sif::mode_costing_t& costings, const sif::TravelMode mode, std::unordered_map<uint64_t, std::vector<valhalla::Location>> target_edges);
 
 
 protected:
@@ -44,6 +73,10 @@ protected:
                              const baldr::NodeInfo* node) override;
   
   sif::mode_costing_t costings_;
+  std::unordered_map<uint64_t, std::vector<valhalla::Location>> target_edges_;
+
+  std::unordered_map<uint64_t, gbfs_route_result> result_;
+  void add_result(baldr::GraphReader& graphreader, const valhalla::Location& location, const sif::EdgeLabel& last_label);
 
 };
 

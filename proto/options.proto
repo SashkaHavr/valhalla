@@ -478,4 +478,7 @@ message Options {
                                                                    // a one to many or many to one time distance matrix. Does not affect
                                                                    // sources_to_targets when either sources or targets has more than 1 location
                                                                    // or when CostMatrix is the selected matrix mode.
+
+  bool is_forward = 55;
+  uint32 gbfs_max_duration = 56;
 }

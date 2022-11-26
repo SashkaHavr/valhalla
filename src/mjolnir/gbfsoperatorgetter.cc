@@ -19,7 +19,6 @@ std::vector<gbfs_operator*> gbfs_operator_getter::operators() {
 }
 
 std::string gbfs_operator::fetch_json(std::string url) {
-  boost::property_tree::ptree gbfs_json;
   long http_code = 0;
   const std::function<void()>* interrupt = nullptr;
   valhalla::baldr::curler_pool_t curlers(1, "");

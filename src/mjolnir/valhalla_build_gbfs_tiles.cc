@@ -97,8 +97,8 @@ int main(int argc, char** argv) {
   }
 
   // Build some tiles!
-  gbfs_graph_builder g(pt, input_files);
-  if (g.build(parse_osm_first)) {
+  gbfs_graph_builder g(pt);
+  if (g.build(parse_osm_first, input_files)) {
     return EXIT_SUCCESS;
   } else {
     return EXIT_FAILURE;

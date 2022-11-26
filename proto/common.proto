@@ -123,6 +123,7 @@ message Location {
   oneof has_preferred_layer {
     int32 preferred_layer = 28;
   }
+  uint64 gbfs_transport_station_id = 29;
 
   // This information will be ignored if provided in the request. Instead it will be filled in as the request is handled
   Correlation correlation = 90;
