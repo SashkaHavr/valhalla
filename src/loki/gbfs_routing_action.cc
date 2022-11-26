@@ -20,7 +20,6 @@ void loki_worker_t::gbfs_route(Api& request) {
     auto locations = PathLocation::fromPBF(options.locations());
     const auto projections = loki::Search(locations, *reader, costing);
     for (size_t i = 0; i < locations.size(); ++i) {
-      LOG_INFO("Received location: " + options.mutable_locations(i)->gbfs_transport_station_id());
       const auto& projection = projections.at(locations[i]);
       PathLocation::toPBF(projection, options.mutable_locations(i), *reader);
     }

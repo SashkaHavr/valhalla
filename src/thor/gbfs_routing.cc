@@ -97,7 +97,7 @@ std::vector<std::pair<uint64_t, gbfs_route_result>> gbfs_routing::Expand(Expansi
   
   std::vector<std::pair<uint64_t, gbfs_route_result>> result;
   std::copy_if(result_.begin(), result_.end(), std::back_inserter(result), [&](auto ie) { return ie.second.start.type != 0; });
-  LOG_INFO((boost::format("GBFS ----- Result left: %1%") % result.size()).str());
+  // LOG_INFO((boost::format("GBFS ----- Result left: %1%") % result.size()).str());
   return result;
 }
 
@@ -115,7 +115,7 @@ void gbfs_routing::add_result(baldr::GraphReader& graphreader, const valhalla::L
   result.label = last_label;
   result.time_total = last_label.cost().secs;
 
-  LOG_INFO((boost::format("GBFS ----- Result for station %1% with time %2%") % station_id % result.time_total).str());
+  // LOG_INFO((boost::format("GBFS ----- Result for station %1% with time %2%") % station_id % result.time_total).str());
 
   for (auto edgelabel_index = result.label.predecessor(); edgelabel_index != kInvalidLabel; edgelabel_index = bdedgelabels_[edgelabel_index].predecessor()) {
     const sif::EdgeLabel edgelabel = bdedgelabels_[edgelabel_index];
@@ -140,7 +140,7 @@ void gbfs_routing::add_result(baldr::GraphReader& graphreader, const valhalla::L
       throw std::exception();
     }
     const gbfs_location_node& l = *it;
-    LOG_INFO((boost::format("GBFS ----- Found location: %1%, id: %2%") % static_cast<uint32_t>(l.type) % std::string(l.id.data())).str());
+    // LOG_INFO((boost::format("GBFS ----- Found location: %1%, id: %2%") % static_cast<uint32_t>(l.type) % std::string(l.id.data())).str());
     PointLL node_ll = node->latlng(tile->header()->base_ll());
     if(result.start.type == 0 && l.type == static_cast<uint8_t>(gbfs_location_node_type::kFreeBike)) {
       result.start = l;
@@ -168,7 +168,7 @@ void gbfs_routing::add_result(baldr::GraphReader& graphreader, const valhalla::L
 
   result_[station_id] = result;
 
-  LOG_INFO((boost::format("GBFS ----- Nodes in result: pedestrian: %1%; bicycle: %2%") % pedestrian_nodes % bicycle_nodes).str());
+  // LOG_INFO((boost::format("GBFS ----- Nodes in result: pedestrian: %1%; bicycle: %2%") % pedestrian_nodes % bicycle_nodes).str());
 }
 
 

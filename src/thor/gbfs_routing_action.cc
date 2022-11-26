@@ -30,15 +30,15 @@ std::string thor_worker_t::gbfs_route(Api& request) {
     for(const auto& edge : location.correlation().edges()) {
       target_edges[edge.graph_id()].push_back(location);
     }
-    LOG_INFO((boost::format("GBFS ----- Received location: %1%, Number of edges: %2%") % location.gbfs_transport_station_id() % location.correlation().edges().size()).str());
+    // LOG_INFO((boost::format("GBFS ----- Received location: %1%, Number of edges: %2%") % location.gbfs_transport_station_id() % location.correlation().edges().size()).str());
   }
 
   options.mutable_locations()->DeleteSubrange(1,  options.locations().size() - 1);
-  LOG_INFO((boost::format("GBFS ----- Received start locations: %1%") % options.locations().size()).str());
-  LOG_INFO((boost::format("GBFS ----- Found target edges: %1%") % target_edges.size()).str());
+  // LOG_INFO((boost::format("GBFS ----- Received start locations: %1%") % options.locations().size()).str());
+  // LOG_INFO((boost::format("GBFS ----- Found target edges: %1%") % target_edges.size()).str());
 
-  LOG_INFO((boost::format("GBFS ----- Got dir: %1%") % options.is_forward()).str());
-  LOG_INFO((boost::format("GBFS ----- Gor max time: %1%") % options.gbfs_max_duration()).str());
+  // LOG_INFO((boost::format("GBFS ----- Got dir: %1%") % options.is_forward()).str());
+  // LOG_INFO((boost::format("GBFS ----- Gor max time: %1%") % options.gbfs_max_duration()).str());
 
   std::chrono::steady_clock::time_point begin_total = std::chrono::steady_clock::now();
   auto res = gbfs_router.Expand(ExpansionType::forward, request, *reader, mode_costing, mode, target_edges);
@@ -53,7 +53,8 @@ std::string thor_worker_t::gbfs_route(Api& request) {
     
     rapidjson::Value station(rapidjson::Type::kObjectType);
     station.AddMember("id", gbfs_result.first, allocator);
-    route.AddMember("station", station.Move(), allocator);
+    route.AddMember("p_type", "Station", allocator);
+    route.AddMember("p", station.Move(), allocator);
 
     auto r = gbfs_result.second;
     route.AddMember("total_duration", (uint32_t)r.time_total, allocator); // uint32 total_duration
