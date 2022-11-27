@@ -415,6 +415,9 @@ public:
                       const graph_tile_ptr& tile,
                       const std::array<std::vector<GraphId>, kBinCount>& more_bins);
 
+  static void ClearBins(const std::string& tile_dir,
+                               const graph_tile_ptr& tile);
+
   /**
    * Get the turn lane builder at the specified index.
    * @param  idx  Index of the turn lane builder.
@@ -462,6 +465,10 @@ public:
 
   std::vector<gbfs_location_node>& gbfs_locations_builder() {
     return gbfs_locations_;
+  }
+
+  std::vector<public_transport_station_projection>& station_projections_builder() {
+    return station_projections_;
   }
 
 protected:

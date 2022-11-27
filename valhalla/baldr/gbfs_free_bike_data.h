@@ -12,3 +12,8 @@ struct gbfs_location_node {
   uint8_t type;
   std::array<char, 64> id;
 };
+
+struct public_transport_station_projection {
+  uint32_t station_id;
+  uint32_t edge_id;
+};

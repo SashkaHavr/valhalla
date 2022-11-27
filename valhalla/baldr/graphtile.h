@@ -704,6 +704,10 @@ public:
     return gbfs_locations_;
   }
 
+  const std::vector<public_transport_station_projection>& station_projections() const {
+    return station_projections_;
+  }
+
 protected:
   // Graph tile memory. A Graph tile owns its memory.
   std::unique_ptr<const GraphMemory> memory_;
@@ -757,6 +761,9 @@ protected:
   // GBFS locations data
   gbfs_location_node* gbfs_location_nodes_{};
 
+  // Projections of public transport stations
+  public_transport_station_projection* public_transport_station_projections_{};
+
   // List of complex_restrictions in the forward direction.
   char* complex_restriction_forward_{};
 
@@ -806,8 +813,10 @@ protected:
   std::unordered_map<std::string, std::list<GraphId>> oper_one_stops;
 
   // Structured GBFS locations data
-  // Locations are divided by corresponding node id
   std::vector<gbfs_location_node> gbfs_locations_;
+
+  // Structured public transport station projections
+  std::vector<public_transport_station_projection> station_projections_;
 
   // Pointer to live traffic data (can be nullptr if not active)
   TrafficTile traffic_tile{nullptr};

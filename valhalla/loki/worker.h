@@ -41,6 +41,7 @@ public:
   void matrix(Api& request);
   void isochrones(Api& request);
   void gbfs_route(Api& request);
+  void parse_stations(Api& request);
   void trace(Api& request);
   std::string height(Api& request);
   std::string transit_available(Api& request);

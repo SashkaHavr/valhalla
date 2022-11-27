@@ -308,6 +308,10 @@ void GraphTileBuilder::StoreTileData() {
     header_builder_.set_gbfs_location_nodes_count(gbfs_locations_.size());
     in_mem.write(reinterpret_cast<const char*>(gbfs_locations_.data()),
                   gbfs_locations_.size() * sizeof(gbfs_location_node));
+
+    header_builder_.set_public_transport_station_projections_count(station_projections_.size());
+    in_mem.write(reinterpret_cast<const char*>(station_projections_.data()),
+                  station_projections_.size() * sizeof(public_transport_station_projection));
     
 
     // Edge bins can only be added after you've stored the tile
@@ -326,7 +330,8 @@ void GraphTileBuilder::StoreTileData() {
         // TODO - once transit transfers are added need to update here
         (signs_builder_.size() * sizeof(Sign)) + (turnlanes_builder_.size() * sizeof(TurnLanes)) +
         (admins_builder_.size() * sizeof(Admin)) +
-        (gbfs_locations_.size() * sizeof(gbfs_location_node)));
+        (gbfs_locations_.size() * sizeof(gbfs_location_node)) +
+        (station_projections_.size() * sizeof(public_transport_station_projection)));
     uint32_t forward_restriction_size = 0;
     for (auto& complex_restriction : complex_restriction_forward_builder_) {
       in_mem << complex_restriction;
@@ -1133,6 +1138,49 @@ void GraphTileBuilder::AddBins(const std::string& tile_dir,
     for (const auto& bin : bins) {
       file.write(reinterpret_cast<const char*>(bin.data()), bin.size() * sizeof(GraphId));
     }
+    // the rest of the stuff after bins
+    begin = reinterpret_cast<const char*>(tile->GetBin(kBinsDim - 1, kBinsDim - 1).end());
+    end = reinterpret_cast<const char*>(tile->header()) + tile->header()->end_offset();
+    file.write(begin, end - begin);
+  } // failed
+  else {
+    throw std::runtime_error("Failed to open file " + filename.string());
+  }
+}
+
+void GraphTileBuilder::ClearBins(const std::string& tile_dir,
+                               const graph_tile_ptr& tile) {
+  assert(tile);
+  // update header bin indices
+  uint32_t offsets[kBinCount] = {0};
+  // update header offsets
+  // NOTE: if format changes to add more things here we need to make a change here as well
+  GraphTileHeader header = *tile->header();
+  uint32_t offset = header.bin_offset(kBinCount - 1).second;
+  uint32_t shift = -(offset * sizeof(GraphId));
+
+  header.set_edge_bin_offsets(offsets);
+  header.set_complex_restriction_forward_offset(header.complex_restriction_forward_offset() + shift);
+  header.set_complex_restriction_reverse_offset(header.complex_restriction_reverse_offset() + shift);
+  header.set_edgeinfo_offset(header.edgeinfo_offset() + shift);
+  header.set_textlist_offset(header.textlist_offset() + shift);
+  header.set_lane_connectivity_offset(header.lane_connectivity_offset() + shift);
+  header.set_end_offset(header.end_offset() + shift);
+  // rewrite the tile
+  filesystem::path filename =
+      tile_dir + filesystem::path::preferred_separator + GraphTile::FileSuffix(header.graphid());
+  if (!filesystem::exists(filename.parent_path())) {
+    filesystem::create_directories(filename.parent_path());
+  }
+  std::ofstream file(filename.c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
+  // open it
+  if (file.is_open()) {
+    // new header
+    file.write(reinterpret_cast<const char*>(&header), sizeof(GraphTileHeader));
+    // a bunch of stuff between header and bins
+    const auto* begin = reinterpret_cast<const char*>(tile->header()) + sizeof(GraphTileHeader);
+    const auto* end = reinterpret_cast<const char*>(tile->GetBin(0, 0).begin());
+    file.write(begin, end - begin);
     // the rest of the stuff after bins
     begin = reinterpret_cast<const char*>(tile->GetBin(kBinsDim - 1, kBinsDim - 1).end());
     end = reinterpret_cast<const char*>(tile->header()) + tile->header()->end_offset();

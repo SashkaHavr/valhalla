@@ -58,7 +58,8 @@ config = {
         },
         'logging': {'type': 'std_out', 'color': True, 'file_name': 'path_to_some_file.log'},
         'gbfs': {
-            'operators_base_urls': []
+            'operators_base_urls': [],
+            "stations_file": "stations_file.json"
         }
     },
     'additional_data': {'elevation': '/data/valhalla/elevation/', 'elevation_url': Optional(str)},

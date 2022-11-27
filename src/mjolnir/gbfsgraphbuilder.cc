@@ -2,6 +2,10 @@
 #include <boost/format.hpp>
 #include <tuple>
 #include <chrono>
+#include <fstream>
+#include <streambuf>
+#include "valhalla/loki/worker.h"
+#include "valhalla/worker.h"
 
 namespace valhalla {
 namespace mjolnir {
@@ -115,7 +119,7 @@ bool gbfs_graph_builder::build(bool parse_osm_first, const std::vector<std::stri
     graph_tile_ptr tile = reader2.GetGraphTile(tile_id);
     for (const auto& location : tile->gbfs_locations()) {
       GraphId node_id(tile_id.tileid(), tile_id.level(), location.node_id);
-      LOG_INFO((boost::format("GBFS ----- Location id: %1%; node id: %2%; type: %3%") % std::string(location.id.data()) % node_id % static_cast<int>(location.type)).str());
+      // LOG_INFO((boost::format("GBFS ----- Location id: %1%; node id: %2%; type: %3%") % std::string(location.id.data()) % node_id % static_cast<int>(location.type)).str());
       total++;
     }
   }
@@ -155,6 +159,12 @@ bool gbfs_graph_builder::build(bool parse_osm_first, const std::vector<std::stri
   stations_old.clear();
   inbound_edges.clear();
   nodes_to_remove.clear();
+  LOG_INFO("GBFS ----- Saving public transport stations from file to tiles");
+  save_public_transport_stations();
+
+  LOG_INFO("GBFS ----- Last standard building stages: start - Elevation, end - Cleanup");
+  build_tile_set(config, input_files, valhalla::mjolnir::BuildStage::kElevation, valhalla::mjolnir::BuildStage::kCleanup);
+  
   return true;
 }
 
@@ -771,6 +781,63 @@ void gbfs_graph_builder::reload_free_bike_nodes() {
 
     std::chrono::steady_clock::time_point end_total = std::chrono::steady_clock::now();
   LOG_INFO((boost::format("GBFS ----- Time total: %1%") % std::chrono::duration_cast<std::chrono::seconds>(end_total - begin_total).count()).str());
+}
+
+void gbfs_graph_builder::clear_bins() {
+  LOG_INFO("GBFS ----- Clearing bins");
+  GraphReader reader(config.get_child("mjolnir"));
+  auto local_tiles = reader.GetTileSet();
+  for (const auto& tile_id : local_tiles) {
+    graph_tile_ptr tile = reader.GetGraphTile(tile_id);
+    GraphTileBuilder::ClearBins(tile_dir, tile);
+  }
+}
+
+void gbfs_graph_builder::save_public_transport_stations() {
+  std::string file_name = config.get_child("mjolnir.gbfs.stations_file").get_value<std::string>();
+  std::ifstream file(file_name);
+  if(!file.good()) {
+    LOG_WARN("GBFS ----- File with public transport stations does not exist. See mjolnir.gbfs.stations_file config");
+    return;
+  }
+  std::string str;
+  file.seekg(0, std::ios::end);   
+  str.reserve(file.tellg());
+  file.seekg(0, std::ios::beg);
+  str.assign((std::istreambuf_iterator<char>(file)),
+              std::istreambuf_iterator<char>());
+
+  valhalla::Api api;
+  ParseApi(str, valhalla::Options::Action::Options_Action_gbfs_route, api);
+  LOG_INFO((boost::format("GBFS ----- Total stations loaded: %1%") % api.options().locations().size()).str());
+  loki::loki_worker_t worker(config);
+  worker.parse_stations(api);
+  const auto& options = api.options();
+  std::unordered_map<GraphId, std::vector<public_transport_station_projection>> tileid_to_locations;
+  for(auto it = options.locations().begin() + 1; it != options.locations().end(); ++it) {
+    valhalla::Location location = *it;
+    for(const auto& edge : location.correlation().edges()) {
+      auto graph_id = GraphId(edge.graph_id());
+      tileid_to_locations[graph_id.Tile_Base()].push_back({location.gbfs_transport_station_id(), graph_id.id()});
+    }
+  }
+  uint32_t total = 0;
+
+  clear_bins();
+  GraphReader reader(config.get_child("mjolnir"));
+  for (const auto& tile_to_l : tileid_to_locations) {
+    graph_tile_ptr tile = reader.GetGraphTile(tile_to_l.first);
+    if(tile == nullptr) {
+      continue;
+    }
+    GraphTileBuilder tilebuilder(tile_dir, tile_to_l.first, true);
+    tilebuilder.station_projections_builder().insert(tilebuilder.station_projections_builder().end(), 
+      tile_to_l.second.begin(), tile_to_l.second.end());
+    total += tile_to_l.second.size();
+    tilebuilder.StoreTileData();
+  }
+
+  LOG_INFO((boost::format("GBFS ----- Total edges with stations saved: %1%") % total).str());
 }
 
 } // namespace gbfs

@@ -337,6 +337,13 @@ void GraphTile::Initialize(const GraphId& graphid) {
     gbfs_locations_ = std::vector<gbfs_location_node>(gbfs_location_nodes_, reinterpret_cast<gbfs_location_node*>(ptr));
   }
 
+  // Set public transport stations data
+  if(header_->public_transport_station_projections_count() > 0) {
+    public_transport_station_projections_ = reinterpret_cast<public_transport_station_projection*>(ptr);
+    ptr += header_->public_transport_station_projections_count() * sizeof(public_transport_station_projection);
+    station_projections_ = std::vector<public_transport_station_projection>(public_transport_station_projections_, reinterpret_cast<public_transport_station_projection*>(ptr));
+  }
+
   // Set a pointer to the edge bin list
   edge_bins_ = reinterpret_cast<GraphId*>(ptr);
 

@@ -334,7 +334,7 @@ void parse_location(valhalla::Location* location,
   if (street_side_max_distance) {
     location->set_street_side_max_distance(*street_side_max_distance);
   }
-  auto gbfs_transport_station_id = rapidjson::get_optional<uint64_t>(r_loc, "/gbfs_transport_station_id");
+  auto gbfs_transport_station_id = rapidjson::get_optional<uint32_t>(r_loc, "/gbfs_transport_station_id");
   if (gbfs_transport_station_id) {
     location->set_gbfs_transport_station_id(*gbfs_transport_station_id);
   }

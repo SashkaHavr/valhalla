@@ -118,6 +118,8 @@ private:
   void create_node_and_edges_in_location(GraphTileBuilder& tilebuilder, GraphId tile_id, graph_tile_ptr& tile, id_location_object location);
   void create_transition(NodeInfo& from, GraphId to, GraphTileBuilder& tilebuilder, bool up);
   std::unordered_map<GraphId, std::vector<id_location_object>> collect_gbgs_locations(bool only_free_bikes);
+  void save_public_transport_stations();
+  void clear_bins();
 };
 
 

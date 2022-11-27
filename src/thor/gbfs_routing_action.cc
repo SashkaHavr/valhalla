@@ -10,30 +10,31 @@ std::string thor_worker_t::gbfs_route(Api& request) {
   auto& options = *request.mutable_options();
   adjust_scores(options);
   auto costing = parse_costing(request);
-  // auto costing = options.costing_type();
-  // auto costing_str = Costing_Enum_Name(costing);
-
-  // sif::mode_costing_t costings;
-  // costings[1] = factory.Create(options.costings().find(Costing::pedestrian)->second);
-  // costings[2] = factory.Create(options.costings().find(Costing::bicycle)->second);
-
-  // LOG_INFO((boost::format("GBFS ----- Costing original: %1%") % static_cast<int>(mode_costing[2]->travel_mode())).str());
-  // LOG_INFO((boost::format("GBFS ----- Consting own 1: %1%") % static_cast<int>(costings[1]->travel_mode())).str());
-  // LOG_INFO((boost::format("GBFS ----- Costings own 2: %1%") % static_cast<int>(costings[2]->travel_mode())).str());
-  // LOG_INFO((boost::format("GBFS ----- Costings own create 1: %1%") % static_cast<int>(costings_[1]->travel_mode())).str());
-  // LOG_INFO((boost::format("GBFS ----- Costings own create 2: %1%") % static_cast<int>(costings_[2]->travel_mode())).str());
-  // LOG_INFO((boost::format("GBFS ----- Travel mode: %1%") % static_cast<int>(mode)).str());
 
   std::unordered_map<uint64_t, std::vector<valhalla::Location>> target_edges;
-  for(auto it = options.locations().begin() + 1; it != options.locations().end(); ++it) {
-    auto location = *it;
-    for(const auto& edge : location.correlation().edges()) {
-      target_edges[edge.graph_id()].push_back(location);
-    }
-    // LOG_INFO((boost::format("GBFS ----- Received location: %1%, Number of edges: %2%") % location.gbfs_transport_station_id() % location.correlation().edges().size()).str());
+  std::unordered_map<baldr::GraphId, std::vector<valhalla::Location>> tileid_to_location;
+  for(const auto& location : options.targets()) {
+    baldr::GraphId graphid = baldr::TileHierarchy::GetGraphId(PointLL(location.ll().lng(), location.ll().lat()), baldr::TileHierarchy::levels().back().level);
+    tileid_to_location[graphid].push_back(location);
   }
 
-  options.mutable_locations()->DeleteSubrange(1,  options.locations().size() - 1);
+  for(const auto& tile_to_l : tileid_to_location) {
+    graph_tile_ptr tile = reader->GetGraphTile(tile_to_l.first);
+    if(tile == nullptr) {
+      continue;
+    }
+    for(const auto& location : tile_to_l.second) {
+      auto it = std::find_if(tile->station_projections().begin(), tile->station_projections().end(), [&](const public_transport_station_projection& p) {
+        return p.station_id == location.gbfs_transport_station_id();
+      });
+      if(it == tile->station_projections().end()) {
+        continue;
+      }
+      const public_transport_station_projection& proj = *it;
+      target_edges[baldr::GraphId(tile_to_l.first.tileid(), tile_to_l.first.level(), proj.edge_id).value].push_back(location);
+    }
+  }
+
   // LOG_INFO((boost::format("GBFS ----- Received start locations: %1%") % options.locations().size()).str());
   // LOG_INFO((boost::format("GBFS ----- Found target edges: %1%") % target_edges.size()).str());
 

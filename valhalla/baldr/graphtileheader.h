@@ -417,19 +417,35 @@ public:
   }
 
   /**
-   * Gets the number of nodes that are associated with free bikes in this tile.
-   * @return  Returns the number of nodes that are associated with free bikes.
+   * Gets the number of nodes that are associated with gbfs locations in this tile.
+   * @return  Returns the number of nodes that are associated with gbfs locations.
    */
   uint32_t gbfs_location_nodes_count() {
     return gbfs_location_nodes_count_;
   }
 
   /**
-   * Sets the number of nodes that are associated with free bikes within this tile.
-   * @param count Number of nodes that are associated with free bikes within the tile.
+   * Sets the number of nodes that are associated with gbfs locations within this tile.
+   * @param count Number of nodes that are associated with gbfs locations within the tile.
    */
   void set_gbfs_location_nodes_count(const uint32_t count) {
     gbfs_location_nodes_count_ = count;
+  }
+
+    /**
+   * Gets the number of edges that contain a projection to a public transport in this tile.
+   * @return  Returns the number of edges that contain a projection to a public transport.
+   */
+  uint32_t public_transport_station_projections_count() {
+    return public_transport_station_projections_count_;
+  }
+
+  /**
+   * Sets the number of edges that contain a projection to a public transport station.
+   * @param count Number of edges that contain a projection to a public transport station within the tile.
+   */
+  void set_public_transport_station_projections_count(const uint32_t count) {
+    public_transport_station_projections_count_ = count;
   }
 
   /**
@@ -705,6 +721,9 @@ protected:
 
   // GBFS locations data size
   uint16_t gbfs_location_nodes_count_;
+  
+  // Public transport stations projections data size
+  uint32_t public_transport_station_projections_count_;
 
 
   // Marks the end of this version of the tile with the rest of the slots
