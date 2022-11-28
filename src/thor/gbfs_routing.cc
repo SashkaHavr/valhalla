@@ -9,8 +9,12 @@ namespace thor {
 
 constexpr uint32_t kInitialEdgeLabelCount = 500000;
 
-gbfs_routing::gbfs_routing(const boost::property_tree::ptree& config) :  Dijkstras(config) {
+void update_new_edge_label(baldr::GraphReader& graphreader, const baldr::NodeInfo* node, const DirectedEdge* directededge, sif::EdgeLabel& edge_label) {
+  edge_label.Update(edge_label.predecessor(), edge_label.cost(), edge_label.cost().secs, edge_label.transition_cost(), edge_label.restriction_idx());
+}
 
+gbfs_routing::gbfs_routing(const boost::property_tree::ptree& config) :  Dijkstras(config) {
+  update_edge_label_callback = update_new_edge_label;
 }
 
 void gbfs_routing::ExpandingNode(baldr::GraphReader& graphreader, graph_tile_ptr tile, const baldr::NodeInfo* node, const sif::EdgeLabel& current, const sif::EdgeLabel* previous) {
@@ -115,7 +119,7 @@ void gbfs_routing::add_result(baldr::GraphReader& graphreader, const valhalla::L
   result.label = last_label;
   result.time_total = last_label.cost().secs;
 
-  // LOG_INFO((boost::format("GBFS ----- Result for station %1% with time %2%") % station_id % result.time_total).str());
+  // LOG_INFO((boost::format("GBFS ----- Result for station %1% with time %2% and cost %3%") % station_id % result.time_total % last_label.cost().cost).str());
 
   for (auto edgelabel_index = result.label.predecessor(); edgelabel_index != kInvalidLabel; edgelabel_index = bdedgelabels_[edgelabel_index].predecessor()) {
     const sif::EdgeLabel edgelabel = bdedgelabels_[edgelabel_index];

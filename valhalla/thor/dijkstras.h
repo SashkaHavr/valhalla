@@ -163,6 +163,12 @@ protected:
   // for tracking the expansion of the Dijkstra
   expansion_callback_t expansion_callback_;
 
+  
+  using update_edge_label_callback_t = std::function<
+      void(baldr::GraphReader&, const baldr::NodeInfo*, const baldr::DirectedEdge*, sif::EdgeLabel&)>;
+  // Additional modifications to edge label before it is put in adjacency list
+  update_edge_label_callback_t update_edge_label_callback;
+
   // when expanding should we treat each location as its own individual path to track concurrently but
   // separately from the other paths
   bool multipath_;

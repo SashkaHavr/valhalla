@@ -257,6 +257,10 @@ void Dijkstras::ExpandInner(baldr::GraphReader& graphreader,
                                    : costing_->TurnType(directededge->localedgeidx(), nodeinfo,
                                                         opp_edge, opp_pred_edge),
                                restriction_idx, pred.path_id());
+    
+    if (update_edge_label_callback) {
+      update_edge_label_callback(graphreader, nodeinfo, directededge, bdedgelabels_.back());
+    }
     adjacencylist_.add(idx);
   }
 
