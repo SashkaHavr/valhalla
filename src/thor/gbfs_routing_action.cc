@@ -6,8 +6,13 @@
 namespace valhalla {
 namespace thor {
 
+std::string empty_response = "{\"routes\":[]}";
+
 std::string thor_worker_t::gbfs_route(Api& request) {
   auto& options = *request.mutable_options();
+  if(options.locations().empty()) {
+    return empty_response;
+  }
   adjust_scores(options);
   auto costing = parse_costing(request);
 
@@ -24,14 +29,17 @@ std::string thor_worker_t::gbfs_route(Api& request) {
       continue;
     }
     for(const auto& location : tile_to_l.second) {
-      auto it = std::find_if(tile->station_projections().begin(), tile->station_projections().end(), [&](const public_transport_station_projection& p) {
+      std::vector<public_transport_station_projection> projections;
+      std::copy_if(tile->station_projections().begin(), tile->station_projections().end(), std::back_inserter(projections), [&](const public_transport_station_projection& p) {
         return p.station_id == location.gbfs_transport_station_id();
       });
-      if(it == tile->station_projections().end()) {
+      if(projections.empty()) {
         continue;
       }
-      const public_transport_station_projection& proj = *it;
-      target_edges[baldr::GraphId(tile_to_l.first.tileid(), tile_to_l.first.level(), proj.edge_id).value].push_back(location);
+      // LOG_INFO((boost::format("GBFS ----- Projections count: %1%") % projections.size()).str());
+      for(const public_transport_station_projection& proj : projections) {
+        target_edges[baldr::GraphId(tile_to_l.first.tileid(), tile_to_l.first.level(), proj.edge_id).value].push_back(location);
+      }
     }
   }
 
@@ -58,7 +66,7 @@ std::string thor_worker_t::gbfs_route(Api& request) {
     route.AddMember("p", station.Move(), allocator);
 
     auto r = gbfs_result.second;
-    route.AddMember("total_duration", (uint32_t)r.time_total, allocator); // uint32 total_duration
+    route.AddMember("total_duration", (uint32_t)(r.time_total / 60), allocator); // uint32 total_duration
 
     rapidjson::Value gbfs_route(rapidjson::Type::kObjectType);
     if(r.start.type == static_cast<uint8_t>(gbfs_location_node_type::kFreeBike)) {
@@ -69,8 +77,8 @@ std::string thor_worker_t::gbfs_route(Api& request) {
       pos.AddMember("lng", r.start_ll.lng(), allocator);
       gbfs_route.AddMember("b", pos.Move(), allocator);
       
-      gbfs_route.AddMember("walk_duration", (uint16_t)r.time_pedestrian, allocator); // uint16 walk_duration
-      gbfs_route.AddMember("bike_duration", (uint16_t)r.time_bicycle, allocator); // uint16 bike_duration
+      gbfs_route.AddMember("walk_duration", (uint16_t)(r.time_pedestrian / 60), allocator); // uint16 walk_duration
+      gbfs_route.AddMember("bike_duration", (uint16_t)(r.time_bicycle / 60), allocator); // uint16 bike_duration
       
       route.AddMember("vehicle_type", "dockless bike", allocator);
       route.AddMember("route_type", "FreeBikeRoute", allocator);
@@ -98,6 +106,10 @@ std::string thor_worker_t::gbfs_route(Api& request) {
 
       route.AddMember("vehicle_type", "station bike", allocator);
       route.AddMember("route_type", "StationBikeRoute", allocator);
+    }
+    else {
+      route.AddMember("vehicle_type", "foot", allocator);
+      route.AddMember("route_type", "FootRoute", allocator);
     }
     route.AddMember("route", gbfs_route.Move(), allocator);
 

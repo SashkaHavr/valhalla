@@ -104,8 +104,7 @@ std::vector<std::pair<uint64_t, gbfs_route_result>> gbfs_routing::Expand(Expansi
   
   std::vector<std::pair<uint64_t, gbfs_route_result>> result;
   std::copy_if(result_.begin(), result_.end(), std::back_inserter(result), [&](const auto& ie) {
-      return (ie.second.start.type != 0)
-          && (ie.second.time_pedestrian + ie.second.time_pedestrian_end < max_foot_duration_)
+      return (ie.second.time_pedestrian + ie.second.time_pedestrian_end < max_foot_duration_)
           && (ie.second.time_bicycle < max_bike_duration_); 
     });
   // LOG_INFO((boost::format("GBFS ----- Result left: %1%") % result.size()).str());
