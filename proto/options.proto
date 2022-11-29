@@ -480,5 +480,6 @@ message Options {
                                                                    // or when CostMatrix is the selected matrix mode.
 
   bool is_forward = 55;
-  uint32 gbfs_max_duration = 56;
+  uint32 gbfs_max_foot_duration = 56;
+  uint32 gbfs_max_bike_duration= 57;
 }

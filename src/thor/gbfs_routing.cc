@@ -57,9 +57,9 @@ void gbfs_routing::BeforeExpandInner(baldr::GraphReader& graphreader, graph_tile
 
 ExpansionRecommendation gbfs_routing::ShouldExpand(baldr::GraphReader& graphreader, const sif::EdgeLabel& pred, const ExpansionType route_type) {
   float time = pred.predecessor() == kInvalidLabel ? 0.f : bdedgelabels_[pred.predecessor()].cost().secs;
-  float distance = pred.predecessor() == kInvalidLabel ? 0.f : bdedgelabels_[pred.predecessor()].path_distance();
+  // float distance = pred.predecessor() == kInvalidLabel ? 0.f : bdedgelabels_[pred.predecessor()].path_distance();
   // prune the edge if its start is above max contour
-  if (time > 900) {
+  if (time > max_foot_duration_ + max_bike_duration_) {
     // LOG_INFO((boost::format("GBFS ----- Prune expansion, time: %1%; distance: %2%") % time % distance).str());
     return ExpansionRecommendation::prune_expansion;
   }
@@ -76,6 +76,9 @@ void gbfs_routing::GetExpansionHints(uint32_t& bucket_count, uint32_t& edge_labe
 std::vector<std::pair<uint64_t, gbfs_route_result>> gbfs_routing::Expand(ExpansionType expansion_type, valhalla::Api& api, baldr::GraphReader& reader, const sif::mode_costing_t& costings, const sif::TravelMode mode, std::unordered_map<uint64_t, std::vector<valhalla::Location>> target_edges) {
   costings_ = costings;
   target_edges_ = target_edges;
+  max_foot_duration_ = api.options().gbfs_max_foot_duration() * 60;
+  max_bike_duration_ = api.options().gbfs_max_bike_duration() * 60;
+  // LOG_INFO((boost::format("GBFS ----- Max foot %1% max bike %2%") % max_foot_duration_ % max_bike_duration_).str());
   result_.clear();
 
   Dijkstras::Expand(expansion_type, api, reader, costings, mode);
@@ -100,7 +103,11 @@ std::vector<std::pair<uint64_t, gbfs_route_result>> gbfs_routing::Expand(Expansi
   // }
   
   std::vector<std::pair<uint64_t, gbfs_route_result>> result;
-  std::copy_if(result_.begin(), result_.end(), std::back_inserter(result), [&](auto ie) { return ie.second.start.type != 0; });
+  std::copy_if(result_.begin(), result_.end(), std::back_inserter(result), [&](const auto& ie) {
+      return (ie.second.start.type != 0)
+          && (ie.second.time_pedestrian + ie.second.time_pedestrian_end < max_foot_duration_)
+          && (ie.second.time_bicycle < max_bike_duration_); 
+    });
   // LOG_INFO((boost::format("GBFS ----- Result left: %1%") % result.size()).str());
   return result;
 }

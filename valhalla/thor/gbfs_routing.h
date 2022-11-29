@@ -17,7 +17,7 @@ struct gbfs_route_result {
   PointLL start_ll;
 
   // Additional fields for stations
-  float time_pedestrian_end;
+  float time_pedestrian_end = 0;
   gbfs_location_node end_station;
   PointLL end_station_ll;
 
@@ -78,6 +78,8 @@ protected:
   std::unordered_map<uint64_t, gbfs_route_result> result_;
   void add_result(baldr::GraphReader& graphreader, const valhalla::Location& location, const sif::EdgeLabel& last_label);
 
+  uint32_t max_foot_duration_ = 900;
+  uint32_t max_bike_duration_ = 900;
 };
 
 } // namespace thor

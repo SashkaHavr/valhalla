@@ -1045,9 +1045,13 @@ void from_json(rapidjson::Document& doc, Options::Action action, Api& api) {
   if (is_forward) {
     options.set_is_forward(*is_forward);
   }
-  auto gbfs_max_duration = rapidjson::get_optional<uint32_t>(doc, "/gbfs_max_duration");
-  if (gbfs_max_duration) {
-    options.set_gbfs_max_duration(*gbfs_max_duration);
+  auto gbfs_max_foot_duration = rapidjson::get_optional<uint32_t>(doc, "/gbfs_max_foot_duration");
+  if (gbfs_max_foot_duration) {
+    options.set_gbfs_max_foot_duration(*gbfs_max_foot_duration);
+  }
+  auto gbfs_max_bike_duration = rapidjson::get_optional<uint32_t>(doc, "/gbfs_max_bike_duration");
+  if (gbfs_max_bike_duration) {
+    options.set_gbfs_max_bike_duration(*gbfs_max_bike_duration);
   }
 
   // deprecated best_paths for map matching top k
