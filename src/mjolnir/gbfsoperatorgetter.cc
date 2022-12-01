@@ -54,18 +54,26 @@ gbfs_station_information& gbfs_operator::station_information() {
 
 gbfs_free_bike_status& gbfs_operator::free_bike_status() {
   if(free_bike_status_.is_outdated()) {
-    free_bike_status_ = gbfs_free_bike_status(fetch_json(urls().free_bike_status_url()));
+    std::string url = urls().free_bike_status_url();
+    if(url == "") {
+      LOG_WARN("GBFS ----- free_bike_status file is not available for " + system_information().operator_name());
+      return free_bike_status_;
+    }
+    free_bike_status_ = gbfs_free_bike_status(fetch_json(url));
   }
   return free_bike_status_;
 }
 
 std::string gbfs_urls::get_url(std::string key) {
-  auto urls = data()["en"]["feeds"].GetArray();
-  auto res = std::find_if(urls.begin(), urls.end(), [&key](rapidjson::Value& val){return std::string(val["name"].GetString()) == key;});
-  if(res == urls.end()) {
-    throw new std::exception();
+  for(auto& lng : data().GetObject()) {
+    auto urls = lng.value["feeds"].GetArray();
+    auto res = std::find_if(urls.begin(), urls.end(), [&key](rapidjson::Value& val){return std::string(val["name"].GetString()) == key;});
+    if(res == urls.end()) {
+      continue;
+    }
+    return (*res)["url"].GetString();
   }
-  return (*res)["url"].GetString();
+  return "";
 }
 
 const std::vector<station_information>& gbfs_station_information::stations() {

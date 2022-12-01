@@ -24,18 +24,20 @@ bool gbfs_graph_builder::build(bool parse_osm_first, const std::vector<std::stri
 
   LOG_INFO("GBFS ----- Creating station networks");
   
-  int nodes_total = 0;
-  iterate_to_update([&](DirectedEdge& edge, GraphId& edge_id, GraphId& node_id) {}, [&](NodeInfo& node) { nodes_total++;});
-  LOG_INFO((boost::format("GBFS ----- Nodes total before: %1%") % nodes_total).str());
+  // int nodes_total = 0;
+  // int edges_total = 0;
+  // iterate_to_read([&](const DirectedEdge& edge) { edges_total++; }, [&](const NodeInfo& node) { nodes_total++; });
+  // LOG_INFO((boost::format("GBFS ----- Nodes total before: %1%") % nodes_total).str());
   std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
   add_gbfs_locations(collect_gbgs_locations(false));
   std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-  LOG_INFO((boost::format("GBFS ----- Time to save networks: %1%") % std::chrono::duration_cast<std::chrono::seconds>(end - begin).count()).str());
-  nodes_total = 0;
-  iterate_to_update([&](DirectedEdge& edge, GraphId& edge_id, GraphId& node_id) {}, [&](NodeInfo& node) { nodes_total++;});
-  LOG_INFO((boost::format("GBFS ----- Nodes total after: %1%") % nodes_total).str());
+  LOG_INFO((boost::format("GBFS ----- Time to save gbfs entities: %1%") % std::chrono::duration_cast<std::chrono::seconds>(end - begin).count()).str());
+  // nodes_total = 0;
+  // iterate_to_update([&](DirectedEdge& edge, GraphId& edge_id, GraphId& node_id) {}, [&](NodeInfo& node) { nodes_total++;});
+  // LOG_INFO((boost::format("GBFS ----- Nodes total after: %1%") % nodes_total).str());
 
 
+  begin = std::chrono::steady_clock::now();
   LOG_INFO("GBFS ----- Dividing pedestrian and bicycle edges");
   std::unordered_map<baldr::GraphId, std::vector<bicycle_edge>> bicycle_edges;
   int bicycle_edges_count = 0;
@@ -74,96 +76,110 @@ bool gbfs_graph_builder::build(bool parse_osm_first, const std::vector<std::stri
 
   });
 
-  LOG_INFO((boost::format("GBFS ----- Pedestrian edges found: %1%") % pedestrian_edges_count).str());
-  LOG_INFO((boost::format("GBFS ----- Bicycle edges found: %1%") % bicycle_edges_count).str());
+  // LOG_INFO((boost::format("GBFS ----- Pedestrian edges found: %1%") % pedestrian_edges_count).str());
+  // LOG_INFO((boost::format("GBFS ----- Bicycle edges found: %1%") % bicycle_edges_count).str());
 
   LOG_INFO("GBFS ----- Constructing a full graph");
   construct_full_graph(bicycle_edges);
 
-  LOG_INFO("GBFS ----- Validating full graph");
-  int total_pedestrian = 0;
-  int total_bicycle = 0;
-  iterate_to_read([&](const DirectedEdge& edge) {
-    if((edge.forwardaccess() & kBicycleAccess) == kBicycleAccess || (edge.reverseaccess() & kBicycleAccess) == kBicycleAccess) {
-      total_bicycle++;
-    }
-    if((edge.forwardaccess() & kPedestrianAccess) == kPedestrianAccess || (edge.reverseaccess() & kPedestrianAccess) == kPedestrianAccess) {
-      total_pedestrian++;
-    }
-  }, [](const NodeInfo& node) {
+  end = std::chrono::steady_clock::now();
+  LOG_INFO((boost::format("GBFS ----- Time to save networks: %1%") % std::chrono::duration_cast<std::chrono::seconds>(end - begin).count()).str());
+
+  // LOG_INFO("GBFS ----- Validating full graph");
+  // int total_pedestrian = 0;
+  // int total_bicycle = 0;
+  // iterate_to_read([&](const DirectedEdge& edge) {
+  //   if((edge.forwardaccess() & kBicycleAccess) == kBicycleAccess || (edge.reverseaccess() & kBicycleAccess) == kBicycleAccess) {
+  //     total_bicycle++;
+  //   }
+  //   if((edge.forwardaccess() & kPedestrianAccess) == kPedestrianAccess || (edge.reverseaccess() & kPedestrianAccess) == kPedestrianAccess) {
+  //     total_pedestrian++;
+  //   }
+  // }, [](const NodeInfo& node) {
     
-  });
+  // });
 
-  LOG_INFO((boost::format("GBFS ----- Pedestrian edges found: %1%") % total_pedestrian).str());
-  LOG_INFO((boost::format("GBFS ----- Bicycle edges found: %1%") % total_bicycle).str());
+  // LOG_INFO((boost::format("GBFS ----- Pedestrian edges found: %1%") % total_pedestrian).str());
+  // LOG_INFO((boost::format("GBFS ----- Bicycle edges found: %1%") % total_bicycle).str());
 
-  int inbound_edges_count = 0;
-  for(const auto& p : inbound_edges) {
-    inbound_edges_count += p.second.size();
-  }
+  // int inbound_edges_count = 0;
+  // for(const auto& p : inbound_edges) {
+  //   inbound_edges_count += p.second.size();
+  // }
 
-  if(total_pedestrian != (pedestrian_edges_count + inbound_edges_count / 2)) {
-    LOG_ERROR("GBFS ----- Pedestrian edges does not match");
-    throw std::exception();
-  }
-  if(total_bicycle != (bicycle_edges_count + inbound_edges_count / 2)) {
-    LOG_ERROR("GBFS ----- Bicycle edges does not match");
-    throw std::exception();
-  }
+  // if(total_pedestrian != (pedestrian_edges_count + inbound_edges_count / 2)) {
+  //   LOG_ERROR("GBFS ----- Pedestrian edges does not match");
+  //   throw std::exception();
+  // }
+  // if(total_bicycle != (bicycle_edges_count + inbound_edges_count / 2)) {
+  //   LOG_ERROR("GBFS ----- Bicycle edges does not match");
+  //   throw std::exception();
+  // }
 
-  int total = 0;
-  LOG_INFO("GBFS ----- Loading free bikes");
-  GraphReader reader2(config.get_child("mjolnir"));
-  auto local_tiles = reader2.GetTileSet();
-  for (const auto& tile_id : local_tiles) {
-    graph_tile_ptr tile = reader2.GetGraphTile(tile_id);
-    for (const auto& location : tile->gbfs_locations()) {
-      GraphId node_id(tile_id.tileid(), tile_id.level(), location.node_id);
-      // LOG_INFO((boost::format("GBFS ----- Location id: %1%; node id: %2%; type: %3%") % std::string(location.id.data()) % node_id % static_cast<int>(location.type)).str());
-      total++;
-    }
-  }
-  LOG_INFO((boost::format("GBFS ----- Total locations loaded: %1%") % total).str());
+  // int total = 0;
+  // LOG_INFO("GBFS ----- Loading free bikes");
+  // GraphReader reader2(config.get_child("mjolnir"));
+  // auto local_tiles = reader2.GetTileSet();
+  // for (const auto& tile_id : local_tiles) {
+  //   graph_tile_ptr tile = reader2.GetGraphTile(tile_id);
+  //   for (const auto& location : tile->gbfs_locations()) {
+  //     GraphId node_id(tile_id.tileid(), tile_id.level(), location.node_id);
+  //     // LOG_INFO((boost::format("GBFS ----- Location id: %1%; node id: %2%; type: %3%") % std::string(location.id.data()) % node_id % static_cast<int>(location.type)).str());
+  //     total++;
+  //   }
+  // }
+  // LOG_INFO((boost::format("GBFS ----- Total locations loaded: %1%") % total).str());
 
-  LOG_INFO("GBFS ----- Validating transitions");
-  total = 0;
-  int total_ped = 0;
-  iterate_to_read([&](const DirectedEdge& edge) {
-  }, [&](const NodeInfo& node) {
-    if(node.access() == kPedestrianAccess) {
-      total_ped += node.transition_count();
-    }
-    total += node.transition_count();
-    if(node.transition_count() > 1) {
-      LOG_ERROR("GBFS ----- There must be maximum 1 transition");
-      throw std::exception();
-    }
-  });
-  LOG_INFO((boost::format("GBFS ----- Transitions loaded: %1%") % total).str());
-  LOG_INFO((boost::format("GBFS ----- Transitions pedestrian loaded: %1%") % total_ped).str());
-  int total_pedestrian_should_be = 0;
-  for(const auto& s : stations_old) {
-    total_pedestrian_should_be += s.second.size();
-  }
-  if(total_pedestrian_should_be != total_ped) {
-    LOG_ERROR("GBFS ----- Transitions does not match");
-    throw std::exception();
-  }
+  // LOG_INFO("GBFS ----- Validating transitions");
+  // total = 0;
+  // int total_ped = 0;
+  // iterate_to_read([&](const DirectedEdge& edge) {
+  // }, [&](const NodeInfo& node) {
+  //   if(node.access() == kPedestrianAccess) {
+  //     total_ped += node.transition_count();
+  //   }
+  //   total += node.transition_count();
+  //   if(node.transition_count() > 1) {
+  //     LOG_ERROR("GBFS ----- There must be maximum 1 transition");
+  //     throw std::exception();
+  //   }
+  // });
+  // LOG_INFO((boost::format("GBFS ----- Transitions loaded: %1%") % total).str());
+  // LOG_INFO((boost::format("GBFS ----- Transitions pedestrian loaded: %1%") % total_ped).str());
+  // int total_pedestrian_should_be = 0;
+  // for(const auto& s : stations_old) {
+  //   total_pedestrian_should_be += s.second.size();
+  // }
+  // if(total_pedestrian_should_be != total_ped) {
+  //   LOG_ERROR("GBFS ----- Transitions does not match");
+  //   throw std::exception();
+  // }
 
   LOG_INFO("GBFS ----- Last standard building stages: start - Elevation, end - Cleanup");
   build_tile_set(config, input_files, valhalla::mjolnir::BuildStage::kElevation, valhalla::mjolnir::BuildStage::kCleanup);
 
-  std::chrono::steady_clock::time_point end_total = std::chrono::steady_clock::now();
-  LOG_INFO((boost::format("GBFS ----- Time total: %1%") % std::chrono::duration_cast<std::chrono::seconds>(end_total - begin_total).count()).str());
+
   
   stations_old.clear();
   inbound_edges.clear();
   nodes_to_remove.clear();
+  begin = std::chrono::steady_clock::now();
   LOG_INFO("GBFS ----- Saving public transport stations from file to tiles");
   save_public_transport_stations();
+  end = std::chrono::steady_clock::now();
+  LOG_INFO((boost::format("GBFS ----- Time to save public transport stations: %1%") % std::chrono::duration_cast<std::chrono::seconds>(end - begin).count()).str());
 
   LOG_INFO("GBFS ----- Last standard building stages: start - Elevation, end - Cleanup");
   build_tile_set(config, input_files, valhalla::mjolnir::BuildStage::kElevation, valhalla::mjolnir::BuildStage::kCleanup);
+
+  // nodes_total = 0;
+  // edges_total = 0;
+  // iterate_to_read([&](const DirectedEdge& edge) { edges_total++; }, [&](const NodeInfo& node) { nodes_total++; });
+  // LOG_INFO((boost::format("GBFS ----- Nodes total after: %1%") % nodes_total).str());
+  // LOG_INFO((boost::format("GBFS ----- Edges total after: %1%") % edges_total).str());
+
+  std::chrono::steady_clock::time_point end_total = std::chrono::steady_clock::now();
+  LOG_INFO((boost::format("GBFS ----- Time total: %1%") % std::chrono::duration_cast<std::chrono::seconds>(end_total - begin_total).count()).str());
   
   return true;
 }
@@ -317,25 +333,25 @@ void gbfs_graph_builder::construct_full_graph(std::unordered_map<baldr::GraphId,
   LOG_INFO((boost::format("GBFS ----- Created bicycle edges: %1%") % total_bicycle).str());
   LOG_INFO((boost::format("GBFS ----- Created transitions: %1%") % total_transitions).str());
 
-  total_pedestrian = 0;
-  total_bicycle = 0;
-  total_transitions = 0;
+  // total_pedestrian = 0;
+  // total_bicycle = 0;
+  // total_transitions = 0;
 
-  LOG_INFO("GBFS ----- Validating edge creation");
-  iterate_to_read([&](const DirectedEdge& edge) {
-    if((edge.forwardaccess() & kBicycleAccess) == kBicycleAccess || (edge.reverseaccess() & kBicycleAccess) == kBicycleAccess) {
-      total_bicycle++;
-    }
-    if((edge.forwardaccess() & kPedestrianAccess) == kPedestrianAccess || (edge.reverseaccess() & kPedestrianAccess) == kPedestrianAccess) {
-      total_pedestrian++;
-    }
-  }, [&](const NodeInfo& node) {
-    total_transitions += node.transition_count();
-  });
+  // LOG_INFO("GBFS ----- Validating edge creation");
+  // iterate_to_read([&](const DirectedEdge& edge) {
+  //   if((edge.forwardaccess() & kBicycleAccess) == kBicycleAccess || (edge.reverseaccess() & kBicycleAccess) == kBicycleAccess) {
+  //     total_bicycle++;
+  //   }
+  //   if((edge.forwardaccess() & kPedestrianAccess) == kPedestrianAccess || (edge.reverseaccess() & kPedestrianAccess) == kPedestrianAccess) {
+  //     total_pedestrian++;
+  //   }
+  // }, [&](const NodeInfo& node) {
+  //   total_transitions += node.transition_count();
+  // });
 
-  LOG_INFO((boost::format("GBFS ----- Pedestrian edges found: %1%") % total_pedestrian).str());
-  LOG_INFO((boost::format("GBFS ----- Bicycle edges found: %1%") % total_bicycle).str());
-  LOG_INFO((boost::format("GBFS ----- Transitions found: %1%") % total_transitions).str());
+  // LOG_INFO((boost::format("GBFS ----- Pedestrian edges found: %1%") % total_pedestrian).str());
+  // LOG_INFO((boost::format("GBFS ----- Bicycle edges found: %1%") % total_bicycle).str());
+  // LOG_INFO((boost::format("GBFS ----- Transitions found: %1%") % total_transitions).str());
 
 
   LOG_INFO("GBFS ----- Update end nodes of new directed edges");
@@ -385,7 +401,7 @@ void gbfs_graph_builder::iterate_to_read(E edge_callback, N node_callback) {
       node_callback(*nodeinfo);
     }
   }
-  LOG_INFO((boost::format("GBFS ----- Edges checked: %1%") % count).str());
+  // LOG_INFO((boost::format("GBFS ----- Edges checked: %1%") % count).str());
 }
 
 template <typename E, typename N>
@@ -421,7 +437,7 @@ void gbfs_graph_builder::iterate_to_update(E edge_callback, N node_callback) {
     }
     tilebuilder.Update(nodes, directededges);
   }
-  LOG_INFO((boost::format("GBFS ----- Edges updated: %1%") % count).str());
+  // LOG_INFO((boost::format("GBFS ----- Edges updated: %1%") % count).str());
 }
 
 

@@ -49,8 +49,8 @@ std::string thor_worker_t::gbfs_route(Api& request) {
   // LOG_INFO((boost::format("GBFS ----- Got dir: %1%") % options.is_forward()).str());
   // LOG_INFO((boost::format("GBFS ----- Gor max time: %1%") % options.gbfs_max_duration()).str());
 
-  std::chrono::steady_clock::time_point begin_total = std::chrono::steady_clock::now();
-  auto res = gbfs_router.Expand(ExpansionType::forward, request, *reader, mode_costing, mode, target_edges);
+  // std::chrono::steady_clock::time_point begin_total = std::chrono::steady_clock::now();
+  auto res = gbfs_router.Expand(options.is_forward() ? ExpansionType::forward : ExpansionType::reverse, request, *reader, mode_costing, mode, target_edges);
 
   rapidjson::Document document;
   document.SetObject();
@@ -123,8 +123,8 @@ std::string thor_worker_t::gbfs_route(Api& request) {
   document.Accept(writer);
   std::string response_string = buffer.GetString();
 
-  std::chrono::steady_clock::time_point end_total = std::chrono::steady_clock::now();
-  LOG_INFO((boost::format("GBFS ----- Time to expand: %1%") % std::chrono::duration_cast<std::chrono::milliseconds>(end_total - begin_total).count()).str());
+  // std::chrono::steady_clock::time_point end_total = std::chrono::steady_clock::now();
+  // LOG_INFO((boost::format("GBFS ----- Time to expand: %1%") % std::chrono::duration_cast<std::chrono::milliseconds>(end_total - begin_total).count()).str());
   gbfs_router.Clear();
   return response_string;
 }

@@ -36,11 +36,11 @@ void loki_worker_t::parse_stations(Api& request) {
   request.mutable_options()->set_costing_type(Costing::pedestrian);
   parse_costing(request);
   // correlate the various locations to the underlying graph
-  LOG_INFO("Parse");
+  LOG_INFO("GBFS ----- Parsing stations");
   auto locations = PathLocation::fromPBF(options.locations());
-  LOG_INFO("Search");
+  LOG_INFO("GBFS ----- Searching for stations projections");
   const auto projections = loki::Search(locations, *reader, costing);
-  LOG_INFO("Fill");
+  LOG_INFO("GBFS ----- Saving data");
   for (size_t i = 0; i < locations.size(); ++i) {
     auto projection = projections.find(locations[i]);
     if(projection == projections.end()) {
